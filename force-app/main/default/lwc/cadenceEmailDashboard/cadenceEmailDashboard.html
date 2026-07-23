@@ -1,0 +1,214 @@
+<template>
+    <lightning-card title="Cadence Email Performance" icon-name="standard:email">
+        <div class="slds-p-horizontal_medium">
+
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-theme_error" role="alert">
+                    <span>{error}</span>
+                </div>
+            </template>
+
+            <!-- Filters -->
+            <div class="slds-grid slds-gutters slds-wrap filter-row">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                    <lightning-combobox
+                        name="folder"
+                        label="Folder"
+                        placeholder="Select a folder"
+                        options={folderOptions}
+                        value={selectedFolder}
+                        onchange={handleFolderChange}
+                        disabled={isLoadingOptions}
+                    ></lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <label class="slds-form-element__label">Cadence</label>
+                    <lightning-input
+                        type="search"
+                        variant="label-hidden"
+                        placeholder="Search cadences in this folder..."
+                        value={cadenceSearchTerm}
+                        onchange={handleCadenceSearch}
+                        disabled={isFolderNotSelected}
+                    ></lightning-input>
+                    <template if:true={hasFolderSelected}>
+                        <ul class="cadence-list slds-box slds-box_x-small slds-m-top_xx-small">
+                            <template for:each={cadenceListForFolder} for:item="cadence">
+                                <li
+                                    key={cadence.cadenceId}
+                                    class={cadence.itemClass}
+                                    data-id={cadence.cadenceId}
+                                    onclick={handleCadenceSelect}
+                                >
+                                    {cadence.name}
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-input
+                        type="date"
+                        label="Start date"
+                        value={startDate}
+                        onchange={handleStartDateChange}
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-input
+                        type="date"
+                        label="End date"
+                        value={endDate}
+                        onchange={handleEndDateChange}
+                    ></lightning-input>
+                </div>
+            </div>
+
+            <template if:false={hasCadenceSelected}>
+                <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                    Select a folder, then a cadence, to see its performance.
+                </div>
+            </template>
+
+            <template if:true={isLoadingData}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+
+            <template if:true={hasCadenceSelected}>
+                <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+                    {selectedCadenceName}
+                </h2>
+
+                <template if:true={overview}>
+                    <!-- KPI tiles -->
+                    <div class="slds-grid slds-gutters slds-wrap kpi-grid">
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.sent}</div>
+                            <div class="kpi-label">Sent</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.delivered}</div>
+                            <div class="kpi-label">Delivered</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.opened}</div>
+                            <div class="kpi-label">Opened</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.clicked}</div>
+                            <div class="kpi-label">Clicked</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.bounced}</div>
+                            <div class="kpi-label">Bounced</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{overview.replied}</div>
+                            <div class="kpi-label">Replied</div>
+                        </div>
+                    </div>
+
+                    <!-- Donuts -->
+                    <div class="slds-grid slds-gutters slds-wrap slds-m-top_medium donut-row">
+                        <div class="slds-col slds-size_1-of-2 slds-align_absolute-center donut-tile">
+                            <lightning-progress-ring
+                                value={openRingValue}
+                                size="large"
+                                variant="active-step"
+                            ></lightning-progress-ring>
+                            <div class="donut-label">Open Rate: {overview.openRate}%</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-align_absolute-center donut-tile">
+                            <lightning-progress-ring
+                                value={clickRingValue}
+                                size="large"
+                                variant="active-step"
+                            ></lightning-progress-ring>
+                            <div class="donut-label">Click Rate: {overview.clickRate}%</div>
+                        </div>
+                    </div>
+
+                    <!-- Opens over time -->
+                    <template if:true={hasOpensOverTime}>
+                        <div class="slds-m-top_medium chart-container">
+                            <div class="slds-text-title_caps slds-m-bottom_x-small">Opens Over Time</div>
+                            <svg viewBox={lineChartViewBox} class="line-chart" preserveAspectRatio="none">
+                                <polyline points={lineChartPoints} class="line-chart-line"></polyline>
+                            </svg>
+                            <div class="slds-text-body_small slds-text-color_weak">{chartRangeLabel}</div>
+                        </div>
+                    </template>
+
+                    <!-- By rep -->
+                    <template if:true={hasByRep}>
+                        <div class="slds-m-top_large">
+                            <div class="slds-text-heading_x-small slds-m-bottom_x-small">By Rep</div>
+                            <table class="slds-table slds-table_bordered slds-table_striped">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th>Rep</th>
+                                        <th>Sent</th>
+                                        <th>Opened</th>
+                                        <th>Clicked</th>
+                                        <th>Replied</th>
+                                        <th>Open Rate</th>
+                                        <th>Click Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={byRep} for:item="rep">
+                                        <tr key={rep.key}>
+                                            <td>{rep.repName}</td>
+                                            <td>{rep.sent}</td>
+                                            <td>{rep.opened}</td>
+                                            <td>{rep.clicked}</td>
+                                            <td>{rep.replied}</td>
+                                            <td>{rep.openRate}%</td>
+                                            <td>{rep.clickRate}%</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+
+                    <!-- Clicked contacts -->
+                    <template if:true={hasClickedContacts}>
+                        <div class="slds-m-top_large slds-m-bottom_medium">
+                            <div class="slds-text-heading_x-small slds-m-bottom_x-small">
+                                Clicked a Tracked Link
+                            </div>
+                            <table class="slds-table slds-table_bordered slds-table_striped">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th>Contact</th>
+                                        <th>First Clicked</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={clickedContacts} for:item="cc">
+                                        <tr key={cc.key}>
+                                            <td>{cc.contactName}</td>
+                                            <td>
+                                                <lightning-formatted-date-time
+                                                    value={cc.firstClickedDate}
+                                                    year="numeric"
+                                                    month="short"
+                                                    day="2-digit"
+                                                    hour="2-digit"
+                                                    minute="2-digit"
+                                                ></lightning-formatted-date-time>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>
