@@ -23,16 +23,15 @@
                 </div>
 
                 <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
-                    <label class="slds-form-element__label">Cadence</label>
                     <lightning-input
                         type="search"
-                        variant="label-hidden"
-                        placeholder="Search cadences in this folder..."
+                        label="Cadence"
+                        placeholder="Search all cadences..."
                         value={cadenceSearchTerm}
                         onchange={handleCadenceSearch}
-                        disabled={isFolderNotSelected}
+                        disabled={isLoadingOptions}
                     ></lightning-input>
-                    <template if:true={hasFolderSelected}>
+                    <template if:true={showCadenceList}>
                         <ul class="cadence-list slds-box slds-box_x-small slds-m-top_xx-small">
                             <template for:each={cadenceListForFolder} for:item="cadence">
                                 <li
@@ -42,6 +41,9 @@
                                     onclick={handleCadenceSelect}
                                 >
                                     {cadence.name}
+                                    <template if:true={cadence.showFolder}>
+                                        <div class="cadence-item-folder">{cadence.folderName}</div>
+                                    </template>
                                 </li>
                             </template>
                         </ul>
@@ -82,29 +84,29 @@
                 </h2>
 
                 <template if:true={overview}>
-                    <!-- KPI tiles -->
+                    <!-- KPI tiles — click any tile to drill into its records -->
                     <div class="slds-grid slds-gutters slds-wrap kpi-grid">
-                        <div class="slds-col kpi-tile">
+                        <div class={sentTileClass} data-filter="sent" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.sent}</div>
                             <div class="kpi-label">Sent</div>
                         </div>
-                        <div class="slds-col kpi-tile">
+                        <div class={deliveredTileClass} data-filter="delivered" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.delivered}</div>
                             <div class="kpi-label">Delivered</div>
                         </div>
-                        <div class="slds-col kpi-tile">
+                        <div class={openedTileClass} data-filter="opened" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.opened}</div>
                             <div class="kpi-label">Opened</div>
                         </div>
-                        <div class="slds-col kpi-tile">
+                        <div class={clickedTileClass} data-filter="clicked" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.clicked}</div>
                             <div class="kpi-label">Clicked</div>
                         </div>
-                        <div class="slds-col kpi-tile">
+                        <div class={bouncedTileClass} data-filter="bounced" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.bounced}</div>
                             <div class="kpi-label">Bounced</div>
                         </div>
-                        <div class="slds-col kpi-tile">
+                        <div class={repliedTileClass} data-filter="replied" onclick={handleKpiClick} role="button" tabindex="0">
                             <div class="kpi-value">{overview.replied}</div>
                             <div class="kpi-label">Replied</div>
                         </div>
@@ -141,7 +143,7 @@
                         </div>
                     </template>
 
-                    <!-- By rep -->
+                    <!-- By rep — click a row to drill into that rep's records -->
                     <template if:true={hasByRep}>
                         <div class="slds-m-top_large">
                             <div class="slds-text-heading_x-small slds-m-bottom_x-small">By Rep</div>
@@ -159,7 +161,13 @@
                                 </thead>
                                 <tbody>
                                     <template for:each={byRep} for:item="rep">
-                                        <tr key={rep.key}>
+                                        <tr
+                                            key={rep.key}
+                                            class={rep.rowClass}
+                                            data-rep-id={rep.repId}
+                                            data-rep-name={rep.repName}
+                                            onclick={handleRepRowClick}
+                                        >
                                             <td>{rep.repName}</td>
                                             <td>{rep.sent}</td>
                                             <td>{rep.opened}</td>
@@ -207,6 +215,114 @@
                             </table>
                         </div>
                     </template>
+
+                    <!-- Drill-down panel -->
+                    <template if:true={hasDrillDown}>
+                        <div class="drill-panel slds-m-top_large slds-m-bottom_medium">
+                            <div class="drill-header">
+                                <span class="slds-text-heading_x-small">{drillTitle}</span>
+                                <div class="drill-header-right">
+                                    <template if:true={hasDrillRows}>
+                                        <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">{drillRowCount}</span>
+                                    </template>
+                                    <lightning-button-icon
+                                        icon-name="utility:close"
+                                        variant="bare"
+                                        size="small"
+                                        alternative-text="Close"
+                                        onclick={closeDrill}
+                                    ></lightning-button-icon>
+                                </div>
+                            </div>
+
+                            <template if:true={isLoadingDrill}>
+                                <div class="slds-p-around_medium slds-align_absolute-center">
+                                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                                </div>
+                            </template>
+
+                            <template if:true={drillError}>
+                                <div class="slds-p-around_small slds-text-color_error">{drillError}</div>
+                            </template>
+
+                            <template if:true={hasDrillRows}>
+                                <div class="drill-body">
+                                    <table class="slds-table slds-table_bordered slds-table_striped slds-table_fixed-layout">
+                                        <thead>
+                                            <tr class="slds-line-height_reset">
+                                                <th class="drill-col-contact">Contact</th>
+                                                <th class="drill-col-rep">Rep</th>
+                                                <th class="drill-col-date">Sent</th>
+                                                <th class="drill-col-date">First Opened</th>
+                                                <th class="drill-col-date">First Clicked</th>
+                                                <th class="drill-col-flag">Bounced</th>
+                                                <th class="drill-col-flag">Replied</th>
+                                                <th class="drill-col-source">Source</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template for:each={drillRows} for:item="row">
+                                                <tr key={row.key}>
+                                                    <td class="drill-col-contact" title={row.contactName}>{row.contactName}</td>
+                                                    <td class="drill-col-rep" title={row.repName}>{row.repName}</td>
+                                                    <td class="drill-col-date">
+                                                        <lightning-formatted-date-time
+                                                            value={row.sentDate}
+                                                            year="numeric"
+                                                            month="short"
+                                                            day="2-digit"
+                                                        ></lightning-formatted-date-time>
+                                                    </td>
+                                                    <td class="drill-col-date">
+                                                        <template if:true={row.firstOpenedDate}>
+                                                            <lightning-formatted-date-time
+                                                                value={row.firstOpenedDate}
+                                                                year="numeric"
+                                                                month="short"
+                                                                day="2-digit"
+                                                            ></lightning-formatted-date-time>
+                                                        </template>
+                                                        <template if:false={row.firstOpenedDate}>
+                                                            <span class="drill-check">—</span>
+                                                        </template>
+                                                    </td>
+                                                    <td class="drill-col-date">
+                                                        <template if:true={row.firstClickedDate}>
+                                                            <lightning-formatted-date-time
+                                                                value={row.firstClickedDate}
+                                                                year="numeric"
+                                                                month="short"
+                                                                day="2-digit"
+                                                            ></lightning-formatted-date-time>
+                                                        </template>
+                                                        <template if:false={row.firstClickedDate}>
+                                                            <span class="drill-check">—</span>
+                                                        </template>
+                                                    </td>
+                                                    <td class="drill-col-flag">
+                                                        <span class={row.bouncedClass}>{row.bouncedLabel}</span>
+                                                    </td>
+                                                    <td class="drill-col-flag">
+                                                        <span class={row.repliedClass}>{row.repliedLabel}</span>
+                                                    </td>
+                                                    <td class="drill-col-source">{row.sourceType}</td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </template>
+
+                            <template if:false={hasDrillRows}>
+                                <template if:false={isLoadingDrill}>
+                                    <div class="slds-align_absolute-center slds-p-vertical_medium slds-text-color_weak">
+                                        No records found for this filter and date range.
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </template>
+
                 </template>
             </template>
         </div>

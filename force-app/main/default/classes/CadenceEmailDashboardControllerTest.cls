@@ -33,6 +33,117 @@ private class CadenceEmailDashboardControllerTest {
         }
     }
 
+    @isTest
+    static void testGetDrillDownRecordsWithNullInputsReturnsEmpty() {
+        Test.startTest();
+        List<CadenceEmailDashboardController.DrillDownRecord> result =
+            CadenceEmailDashboardController.getDrillDownRecords(null, null, null, 'opened', null);
+        Test.stopTest();
+        System.assertEquals(0, result.size(), 'Null inputs should return an empty list');
+    }
+
+    @isTest
+    static void testDrillDownRecordSortOrder() {
+        CadenceEmailDashboardController.DrillDownRecord older = new CadenceEmailDashboardController.DrillDownRecord();
+        older.sentDate = DateTime.newInstance(2024, 6, 1, 0, 0, 0);
+        older.contactName = 'Alice';
+        older.repName = 'Rep1';
+        older.sourceType = 'Manual';
+        older.isOpened = false;
+        older.isClicked = false;
+        older.isBounced = false;
+        older.hasReply = false;
+
+        CadenceEmailDashboardController.DrillDownRecord newer = new CadenceEmailDashboardController.DrillDownRecord();
+        newer.sentDate = DateTime.newInstance(2024, 7, 1, 0, 0, 0);
+        newer.contactName = 'Bob';
+        newer.repName = 'Rep2';
+        newer.sourceType = 'Automated';
+        newer.isOpened = true;
+        newer.isClicked = false;
+        newer.isBounced = false;
+        newer.hasReply = false;
+
+        CadenceEmailDashboardController.DrillDownRecord noDate = new CadenceEmailDashboardController.DrillDownRecord();
+        noDate.sentDate = null;
+        noDate.contactName = 'Charlie';
+        noDate.repName = 'Rep3';
+        noDate.sourceType = 'Manual';
+        noDate.isOpened = false;
+        noDate.isClicked = false;
+        noDate.isBounced = false;
+        noDate.hasReply = false;
+
+        CadenceEmailDashboardController.DrillDownRecord sameAsOlder = new CadenceEmailDashboardController.DrillDownRecord();
+        sameAsOlder.sentDate = DateTime.newInstance(2024, 6, 1, 0, 0, 0);
+        sameAsOlder.contactName = 'Dana';
+        sameAsOlder.repName = 'Rep4';
+        sameAsOlder.sourceType = 'Manual';
+        sameAsOlder.isOpened = false;
+        sameAsOlder.isClicked = false;
+        sameAsOlder.isBounced = false;
+        sameAsOlder.hasReply = false;
+
+        List<CadenceEmailDashboardController.DrillDownRecord> recs =
+            new List<CadenceEmailDashboardController.DrillDownRecord>{ older, noDate, newer, sameAsOlder };
+
+        Test.startTest();
+        recs.sort();
+        Test.stopTest();
+
+        System.assertEquals('Bob', recs[0].contactName, 'Most recent sentDate should sort first (DESC)');
+        System.assertEquals('Charlie', recs[recs.size() - 1].contactName, 'Null sentDate should sort last');
+    }
+
+    @isTest(SeeAllData=true)
+    static void testGetDrillDownRecordsForRealCadences() {
+        List<AggregateResult> topCadences = [
+            SELECT ActionCadenceId cadenceId, COUNT(Id) cnt
+            FROM ActionCadenceStepTracker
+            WHERE ActionCadenceId != null
+            GROUP BY ActionCadenceId
+            ORDER BY COUNT(Id) DESC
+            LIMIT 2
+        ];
+        if (topCadences.isEmpty()) {
+            return;
+        }
+
+        Id cadenceId = (Id) topCadences[0].get('cadenceId');
+        Date startD = Date.newInstance(2020, 1, 1);
+        Date endD = Date.today();
+
+        Test.startTest();
+        for (String filterType : new List<String>{ 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'replied' }) {
+            List<CadenceEmailDashboardController.DrillDownRecord> result =
+                CadenceEmailDashboardController.getDrillDownRecords(cadenceId, startD, endD, filterType, null);
+            System.assertNotEquals(null, result, filterType + ' filter should return a non-null list');
+            for (CadenceEmailDashboardController.DrillDownRecord rec : result) {
+                System.assertNotEquals(null, rec.contactName, 'contactName should never be null');
+                System.assertNotEquals(null, rec.repName, 'repName should never be null');
+                System.assertNotEquals(null, rec.sourceType, 'sourceType should never be null');
+                System.assert(rec.sourceType == 'Manual' || rec.sourceType == 'Automated',
+                    'sourceType must be Manual or Automated');
+            }
+        }
+
+        List<AggregateResult> repQuery = [
+            SELECT CreatedById repId
+            FROM EmailMessage
+            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+              AND MessageDate >= LAST_N_YEARS:3
+            GROUP BY CreatedById
+            LIMIT 1
+        ];
+        if (!repQuery.isEmpty()) {
+            Id repId = (Id) repQuery[0].get('repId');
+            List<CadenceEmailDashboardController.DrillDownRecord> repResult =
+                CadenceEmailDashboardController.getDrillDownRecords(cadenceId, startD, endD, 'rep', repId);
+            System.assertNotEquals(null, repResult, 'Rep filter should return a non-null list');
+        }
+        Test.stopTest();
+    }
+
     @isTest(SeeAllData=true)
     static void testGetDashboardDataForRealCadencesReturnsConsistentStructure() {
         // Pick the cadences with the most tracker activity (rather than an arbitrary alphabetical

@@ -1,6 +1,7 @@
 public with sharing class CadenceEmailDashboardController {
 
     private static final Integer MAX_CLICKED_CONTACTS = 200;
+    private static final Integer MAX_DRILL_ROWS = 500;
 
     public class CadenceOption {
         @AuraEnabled public Id cadenceId;
@@ -43,7 +44,30 @@ public with sharing class CadenceEmailDashboardController {
         Integer replied = 0;
     }
 
+    public class DrillDownRecord implements Comparable {
+        @AuraEnabled public String contactName;
+        @AuraEnabled public Id contactId;
+        @AuraEnabled public String repName;
+        @AuraEnabled public Datetime sentDate;
+        @AuraEnabled public Boolean isOpened;
+        @AuraEnabled public Datetime firstOpenedDate;
+        @AuraEnabled public Boolean isClicked;
+        @AuraEnabled public Datetime firstClickedDate;
+        @AuraEnabled public Boolean isBounced;
+        @AuraEnabled public Boolean hasReply;
+        @AuraEnabled public String sourceType;
+
+        public Integer compareTo(Object other) {
+            DrillDownRecord o = (DrillDownRecord) other;
+            if (this.sentDate == o.sentDate) return 0;
+            if (o.sentDate == null) return -1;
+            if (this.sentDate == null) return 1;
+            return o.sentDate > this.sentDate ? 1 : -1;
+        }
+    }
+
     public class RepMetrics implements Comparable {
+        @AuraEnabled public Id repId;
         @AuraEnabled public String repName;
         @AuraEnabled public Integer sent;
         @AuraEnabled public Integer opened;
@@ -297,6 +321,7 @@ public with sharing class CadenceEmailDashboardController {
         }
         for (RepStat rs : repStatsByUser.values()) {
             RepMetrics rm = new RepMetrics();
+            rm.repId = rs.repId;
             rm.repName = userNameById.containsKey(rs.repId) ? userNameById.get(rs.repId) : 'Unknown';
             rm.sent = rs.sent;
             rm.opened = rs.opened;
@@ -323,6 +348,152 @@ public with sharing class CadenceEmailDashboardController {
         }
 
         return data;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DrillDownRecord> getDrillDownRecords(
+        Id cadenceId, Date startDate, Date endDate, String filterType, Id repId
+    ) {
+        if (cadenceId == null || startDate == null || endDate == null) {
+            return new List<DrillDownRecord>();
+        }
+        DateTime startDt = DateTime.newInstance(startDate, Time.newInstance(0, 0, 0, 0));
+        DateTime endDt = DateTime.newInstance(endDate.addDays(1), Time.newInstance(0, 0, 0, 0));
+
+        String emWhere = 'ActionCadenceStepTracker.ActionCadenceId = :cadenceId'
+            + ' AND MessageDate >= :startDt AND MessageDate < :endDt';
+        String leWhere = 'ActionCadenceStepTracker.ActionCadenceId = :cadenceId'
+            + ' AND CreatedDate >= :startDt AND CreatedDate < :endDt AND Result = \'Sent\'';
+        Boolean skipAutomated = false;
+
+        if (filterType == 'opened') {
+            emWhere += ' AND IsOpened = true';
+            leWhere += ' AND IsOpened = true';
+        } else if (filterType == 'clicked') {
+            emWhere += ' AND IsLinkClicked = true';
+            leWhere += ' AND IsClicked = true';
+        } else if (filterType == 'bounced') {
+            emWhere += ' AND IsBounced = true';
+            skipAutomated = true;
+        } else if (filterType == 'replied') {
+            emWhere += ' AND HasReply = true';
+            leWhere += ' AND HasReply = true';
+        } else if (filterType == 'delivered') {
+            emWhere += ' AND IsBounced = false';
+        } else if (filterType == 'rep' && repId != null) {
+            emWhere += ' AND CreatedById = :repId';
+            leWhere += ' AND ListEmail.OwnerId = :repId';
+        }
+
+        List<EmailMessage> emails = Database.query(
+            'SELECT Id, MessageDate, IsOpened, FirstOpenedDate, IsLinkClicked, '
+            + 'FirstLinkClickedDate, IsBounced, HasReply, CreatedById '
+            + 'FROM EmailMessage WHERE ' + emWhere
+            + ' ORDER BY MessageDate DESC LIMIT 250'
+        );
+
+        List<ListEmailSentResult> listResults = new List<ListEmailSentResult>();
+        if (!skipAutomated) {
+            listResults = Database.query(
+                'SELECT Id, RecipientId, CreatedDate, IsOpened, FirstOpenedDate, '
+                + 'IsClicked, FirstClickedDate, HasReply, ListEmail.OwnerId '
+                + 'FROM ListEmailSentResult WHERE ' + leWhere
+                + ' ORDER BY CreatedDate DESC LIMIT 250'
+            );
+        }
+
+        Set<Id> emailIds = new Set<Id>();
+        Set<Id> repIds = new Set<Id>();
+        Set<Id> recipientIds = new Set<Id>();
+
+        for (EmailMessage em : emails) {
+            emailIds.add(em.Id);
+            if (em.CreatedById != null) repIds.add(em.CreatedById);
+        }
+        for (ListEmailSentResult r : listResults) {
+            if (r.RecipientId != null) recipientIds.add(r.RecipientId);
+            if (r.ListEmail != null && r.ListEmail.OwnerId != null) repIds.add(r.ListEmail.OwnerId);
+        }
+
+        Map<Id, Id> contactIdByEmailId = new Map<Id, Id>();
+        if (!emailIds.isEmpty()) {
+            for (EmailMessageRelation emr : [
+                SELECT EmailMessageId, RelationId FROM EmailMessageRelation
+                WHERE EmailMessageId IN :emailIds
+                  AND RelationType = 'ToAddress' AND RelationObjectType = 'Contact'
+            ]) {
+                if (!contactIdByEmailId.containsKey(emr.EmailMessageId)) {
+                    contactIdByEmailId.put(emr.EmailMessageId, emr.RelationId);
+                }
+            }
+            recipientIds.addAll(contactIdByEmailId.values());
+        }
+
+        Map<Id, String> nameById = new Map<Id, String>();
+        if (!recipientIds.isEmpty()) {
+            for (Contact c : [SELECT Id, Name FROM Contact WHERE Id IN :recipientIds]) {
+                nameById.put(c.Id, c.Name);
+            }
+            for (Lead l : [SELECT Id, Name FROM Lead WHERE Id IN :recipientIds]) {
+                nameById.put(l.Id, l.Name);
+            }
+        }
+
+        Map<Id, String> userNameById = new Map<Id, String>();
+        if (!repIds.isEmpty()) {
+            for (User u : [SELECT Id, Name FROM User WHERE Id IN :repIds]) {
+                userNameById.put(u.Id, u.Name);
+            }
+        }
+
+        List<DrillDownRecord> results = new List<DrillDownRecord>();
+
+        for (EmailMessage em : emails) {
+            DrillDownRecord rec = new DrillDownRecord();
+            Id cId = contactIdByEmailId.get(em.Id);
+            rec.contactId = cId;
+            rec.contactName = (cId != null && nameById.containsKey(cId)) ? nameById.get(cId) : 'Unknown';
+            rec.repName = (em.CreatedById != null && userNameById.containsKey(em.CreatedById))
+                ? userNameById.get(em.CreatedById) : 'Unknown';
+            rec.sentDate = em.MessageDate;
+            rec.isOpened = em.IsOpened;
+            rec.firstOpenedDate = em.FirstOpenedDate;
+            rec.isClicked = em.IsLinkClicked;
+            rec.firstClickedDate = em.FirstLinkClickedDate;
+            rec.isBounced = em.IsBounced;
+            rec.hasReply = em.HasReply;
+            rec.sourceType = 'Manual';
+            results.add(rec);
+        }
+
+        for (ListEmailSentResult r : listResults) {
+            DrillDownRecord rec = new DrillDownRecord();
+            rec.contactId = r.RecipientId;
+            rec.contactName = (r.RecipientId != null && nameById.containsKey(r.RecipientId))
+                ? nameById.get(r.RecipientId) : 'Unknown';
+            Id ownerId = (r.ListEmail != null) ? r.ListEmail.OwnerId : null;
+            rec.repName = (ownerId != null && userNameById.containsKey(ownerId))
+                ? userNameById.get(ownerId) : 'Unknown';
+            rec.sentDate = r.CreatedDate;
+            rec.isOpened = r.IsOpened;
+            rec.firstOpenedDate = r.FirstOpenedDate;
+            rec.isClicked = r.IsClicked;
+            rec.firstClickedDate = r.FirstClickedDate;
+            rec.isBounced = false;
+            rec.hasReply = r.HasReply;
+            rec.sourceType = 'Automated';
+            results.add(rec);
+        }
+
+        results.sort();
+        if (results.size() > MAX_DRILL_ROWS) {
+            List<DrillDownRecord> capped = new List<DrillDownRecord>();
+            for (Integer i = 0; i < MAX_DRILL_ROWS; i++) {
+                capped.add(results[i]);
+            }
+            return capped;
+        }
+        return results;
     }
 
     private static Decimal rate(Integer numerator, Integer denominator) {
