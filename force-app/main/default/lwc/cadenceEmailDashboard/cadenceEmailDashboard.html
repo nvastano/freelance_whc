@@ -263,7 +263,14 @@
                                         <tbody>
                                             <template for:each={drillRows} for:item="row">
                                                 <tr key={row.key}>
-                                                    <td class="drill-col-contact" title={row.contactName}>{row.contactName}</td>
+                                                    <td class="drill-col-contact" title={row.contactName}>
+                                                        <template if:true={row.contactUrl}>
+                                                            <a href={row.contactUrl} target="_blank" class="drill-contact-link">{row.contactName}</a>
+                                                        </template>
+                                                        <template if:false={row.contactUrl}>
+                                                            {row.contactName}
+                                                        </template>
+                                                    </td>
                                                     <td class="drill-col-rep" title={row.repName}>{row.repName}</td>
                                                     <td class="drill-col-date">
                                                         <lightning-formatted-date-time

@@ -181,6 +181,15 @@
     white-space: nowrap;
 }
 
+.drill-contact-link {
+    color: #0176d3;
+    text-decoration: none;
+}
+
+.drill-contact-link:hover {
+    text-decoration: underline;
+}
+
 .drill-check {
     color: #706e6b;
 }

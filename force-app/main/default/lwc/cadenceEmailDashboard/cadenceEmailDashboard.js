@@ -259,18 +259,25 @@ export default class CadenceEmailDashboard extends LightningElement {
     }
 
     get drillRows() {
-        return this.drillDownRecords.map((r, idx) => ({
-            ...r,
-            key: `${idx}-${r.contactName}-${r.sentDate}`,
-            openedLabel: r.isOpened ? '✓' : '—',
-            openedClass: r.isOpened ? 'drill-check drill-check_yes' : 'drill-check',
-            clickedLabel: r.isClicked ? '✓' : '—',
-            clickedClass: r.isClicked ? 'drill-check drill-check_yes' : 'drill-check',
-            bouncedLabel: r.isBounced ? '✓' : '—',
-            bouncedClass: r.isBounced ? 'drill-check drill-check_warn' : 'drill-check',
-            repliedLabel: r.hasReply ? '✓' : '—',
-            repliedClass: r.hasReply ? 'drill-check drill-check_yes' : 'drill-check'
-        }));
+        return this.drillDownRecords.map((r, idx) => {
+            const prefix = r.contactId ? r.contactId.substring(0, 3) : null;
+            let sObjectType = null;
+            if (prefix === '003') sObjectType = 'Contact';
+            else if (prefix === '00Q') sObjectType = 'Lead';
+            return {
+                ...r,
+                key: `${idx}-${r.contactName}-${r.sentDate}`,
+                contactUrl: sObjectType ? `/lightning/r/${sObjectType}/${r.contactId}/view` : null,
+                openedLabel: r.isOpened ? '✓' : '—',
+                openedClass: r.isOpened ? 'drill-check drill-check_yes' : 'drill-check',
+                clickedLabel: r.isClicked ? '✓' : '—',
+                clickedClass: r.isClicked ? 'drill-check drill-check_yes' : 'drill-check',
+                bouncedLabel: r.isBounced ? '✓' : '—',
+                bouncedClass: r.isBounced ? 'drill-check drill-check_warn' : 'drill-check',
+                repliedLabel: r.hasReply ? '✓' : '—',
+                repliedClass: r.hasReply ? 'drill-check drill-check_yes' : 'drill-check'
+            };
+        });
     }
 
     get hasDrillRows() {
