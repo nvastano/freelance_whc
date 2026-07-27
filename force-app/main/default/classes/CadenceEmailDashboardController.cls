@@ -105,6 +105,20 @@ public without sharing class CadenceEmailDashboardController {
         @AuraEnabled public List<ClickedContact> clickedContacts = new List<ClickedContact>();
     }
 
+    // Resolves cadence → tracker IDs upfront so downstream queries never
+    // use cross-object WHERE filters, which trigger a Salesforce SQL alias bug.
+    private static Set<Id> getTrackerIds(Id cadenceId) {
+        Set<Id> ids = new Set<Id>();
+        for (ActionCadenceStepTracker t : [
+            SELECT Id FROM ActionCadenceStepTracker
+            WHERE ActionCadenceId = :cadenceId
+            LIMIT 50000
+        ]) {
+            ids.add(t.Id);
+        }
+        return ids;
+    }
+
     @AuraEnabled(cacheable=true)
     public static List<CadenceOption> getCadenceOptions() {
         List<CadenceOption> options = new List<CadenceOption>();
@@ -129,18 +143,21 @@ public without sharing class CadenceEmailDashboardController {
         DateTime startDt = DateTime.newInstance(startDate, Time.newInstance(0, 0, 0, 0));
         DateTime endDt = DateTime.newInstance(endDate.addDays(1), Time.newInstance(0, 0, 0, 0));
 
+        Set<Id> trackerIds = getTrackerIds(cadenceId);
         DashboardData data = new DashboardData();
+        if (trackerIds.isEmpty()) return data;
+
         Map<Id, RepStat> repStatsByUser = new Map<Id, RepStat>();
         Map<Date, Integer> opensByDay = new Map<Date, Integer>();
         Set<Id> clickedEmailMessageIds = new Set<Id>();
         List<ClickedContact> listEmailClicked = new List<ClickedContact>();
 
-        // ---- Manual path: EmailMessage (1:1 cadence-linked sends) ----
+        // ---- Manual path: EmailMessage ----
         for (AggregateResult ar : [
             SELECT CreatedById repId, IsOpened isOpened, IsLinkClicked isClicked,
                    IsBounced isBounced, HasReply hasReply, COUNT(Id) cnt
             FROM EmailMessage
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND MessageDate >= :startDt AND MessageDate < :endDt
             GROUP BY CreatedById, IsOpened, IsLinkClicked, IsBounced, HasReply
         ]) {
@@ -157,15 +174,9 @@ public without sharing class CadenceEmailDashboardController {
             } else {
                 data.overview.delivered += cnt;
             }
-            if (isOpened) {
-                data.overview.opened += cnt;
-            }
-            if (isClicked) {
-                data.overview.clicked += cnt;
-            }
-            if (hasReply) {
-                data.overview.replied += cnt;
-            }
+            if (isOpened) data.overview.opened += cnt;
+            if (isClicked) data.overview.clicked += cnt;
+            if (hasReply) data.overview.replied += cnt;
 
             if (repId != null) {
                 RepStat rs = repStatsByUser.get(repId);
@@ -184,7 +195,7 @@ public without sharing class CadenceEmailDashboardController {
         for (AggregateResult ar : [
             SELECT DAY_ONLY(FirstOpenedDate) day, COUNT(Id) cnt
             FROM EmailMessage
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND IsOpened = true
               AND FirstOpenedDate >= :startDt AND FirstOpenedDate < :endDt
             GROUP BY DAY_ONLY(FirstOpenedDate)
@@ -198,7 +209,7 @@ public without sharing class CadenceEmailDashboardController {
         for (EmailMessage em : [
             SELECT Id, FirstLinkClickedDate
             FROM EmailMessage
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND IsLinkClicked = true
               AND MessageDate >= :startDt AND MessageDate < :endDt
             ORDER BY FirstLinkClickedDate DESC
@@ -238,7 +249,7 @@ public without sharing class CadenceEmailDashboardController {
         for (AggregateResult ar : [
             SELECT ListEmail.OwnerId repId, IsOpened isOpened, IsClicked isClicked, HasReply hasReply, COUNT(Id) cnt
             FROM ListEmailSentResult
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND CreatedDate >= :startDt AND CreatedDate < :endDt
               AND Result = 'Sent'
             GROUP BY ListEmail.OwnerId, IsOpened, IsClicked, HasReply
@@ -272,7 +283,7 @@ public without sharing class CadenceEmailDashboardController {
         for (AggregateResult ar : [
             SELECT DAY_ONLY(FirstOpenedDate) day, COUNT(Id) cnt
             FROM ListEmailSentResult
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND IsOpened = true
               AND FirstOpenedDate >= :startDt AND FirstOpenedDate < :endDt
             GROUP BY DAY_ONLY(FirstOpenedDate)
@@ -285,7 +296,7 @@ public without sharing class CadenceEmailDashboardController {
         List<ListEmailSentResult> clickedResults = [
             SELECT Id, RecipientId, FirstClickedDate
             FROM ListEmailSentResult
-            WHERE ActionCadenceStepTracker.ActionCadenceId = :cadenceId
+            WHERE ActionCadenceStepTrackerId IN :trackerIds
               AND IsClicked = true
               AND CreatedDate >= :startDt AND CreatedDate < :endDt
             ORDER BY FirstClickedDate DESC
@@ -310,7 +321,7 @@ public without sharing class CadenceEmailDashboardController {
             ));
         }
 
-        // ---- Assemble rates ----
+        // ---- Assemble rates and rep metrics ----
         data.overview.openRate = rate(data.overview.opened, data.overview.sent);
         data.overview.clickRate = rate(data.overview.clicked, data.overview.sent);
 
@@ -360,11 +371,18 @@ public without sharing class CadenceEmailDashboardController {
         DateTime startDt = DateTime.newInstance(startDate, Time.newInstance(0, 0, 0, 0));
         DateTime endDt = DateTime.newInstance(endDate.addDays(1), Time.newInstance(0, 0, 0, 0));
 
-        String emWhere = 'ActionCadenceStepTracker.ActionCadenceId = :cadenceId'
+        Set<Id> trackerIds = getTrackerIds(cadenceId);
+        if (trackerIds.isEmpty()) return new List<DrillDownRecord>();
+
+        String emWhere = 'ActionCadenceStepTrackerId IN :trackerIds'
             + ' AND MessageDate >= :startDt AND MessageDate < :endDt';
-        String leWhere = 'ActionCadenceStepTracker.ActionCadenceId = :cadenceId'
+        String leWhere = 'ActionCadenceStepTrackerId IN :trackerIds'
             + ' AND CreatedDate >= :startDt AND CreatedDate < :endDt AND Result = \'Sent\'';
         Boolean skipAutomated = false;
+
+        // For the rep filter on ListEmailSentResult we resolve owner via ListEmail IDs
+        // to avoid a cross-object WHERE filter (which causes a Salesforce SQL alias bug).
+        Set<Id> repListEmailIds = new Set<Id>();
 
         if (filterType == 'opened') {
             emWhere += ' AND IsOpened = true';
@@ -382,7 +400,14 @@ public without sharing class CadenceEmailDashboardController {
             emWhere += ' AND IsBounced = false';
         } else if (filterType == 'rep' && repId != null) {
             emWhere += ' AND CreatedById = :repId';
-            leWhere += ' AND ListEmail.OwnerId = :repId';
+            for (ListEmail le : [SELECT Id FROM ListEmail WHERE OwnerId = :repId LIMIT 10000]) {
+                repListEmailIds.add(le.Id);
+            }
+            if (repListEmailIds.isEmpty()) {
+                skipAutomated = true;
+            } else {
+                leWhere += ' AND ListEmailId IN :repListEmailIds';
+            }
         }
 
         List<EmailMessage> emails = Database.query(
