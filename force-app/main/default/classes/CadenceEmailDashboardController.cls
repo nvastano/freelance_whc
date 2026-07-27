@@ -1,4 +1,4 @@
-public with sharing class CadenceEmailDashboardController {
+public without sharing class CadenceEmailDashboardController {
 
     private static final Integer MAX_CLICKED_CONTACTS = 200;
     private static final Integer MAX_DRILL_ROWS = 500;
