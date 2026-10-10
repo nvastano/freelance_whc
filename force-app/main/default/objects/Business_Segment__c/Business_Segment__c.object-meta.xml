@@ -4,8 +4,7 @@
     <pluralLabel>Business Segments</pluralLabel>
     <nameField>
         <label>Business Segment Name</label>
-        <type>AutoNumber</type>
-        <displayFormat>BS-{0000}</displayFormat>
+        <type>Text</type>
     </nameField>
     <deploymentStatus>Deployed</deploymentStatus>
     <sharingModel>ReadWrite</sharingModel>
@@ -17,4 +16,8 @@
     <enableSearch>true</enableSearch>
     <enableSharing>true</enableSharing>
     <enableStreamingApi>true</enableStreamingApi>
+    <searchLayouts>
+        <lookupDialogsAdditionalFields>Business_Segment__c.Business__c</lookupDialogsAdditionalFields>
+        <lookupDialogsAdditionalFields>Business_Segment__c.Cycle__c</lookupDialogsAdditionalFields>
+    </searchLayouts>
 </CustomObject>
