@@ -1,0 +1,42 @@
+.slds-table {
+    table-layout: auto;
+    width: 100%;
+}
+
+.col-check        { width: 3%; }
+.col-sub-industry { width: 21%; white-space: normal; word-wrap: break-word; }
+.col-primary      { width: 20%; white-space: normal; word-wrap: break-word; }
+.col-group        { width: 20%; white-space: normal; word-wrap: break-word; }
+.col-member       { width: 18%; white-space: normal; word-wrap: break-word; }
+.col-active       { width: 8%;  }
+.col-actions      { width: 12%; }
+
+.page-size-combo {
+    min-width: 130px;
+}
+
+.page-indicator {
+    min-width: 90px;
+    text-align: center;
+}
+
+.bulk-bar {
+    background-color: #f0f6ff;
+    border: 1px solid #c9d9f5;
+    border-radius: 4px;
+}
+
+.bulk-combo {
+    min-width: 160px;
+}
+
+thead th {
+    background-color: #f3f3f3;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0.75rem;
+    white-space: normal;
+    word-wrap: break-word;
+}

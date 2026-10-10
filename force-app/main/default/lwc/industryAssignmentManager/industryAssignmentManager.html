@@ -1,0 +1,227 @@
+<template>
+    <lightning-card title="Industry Assignment Manager">
+        <div slot="actions">
+            <lightning-button label="+ New Assignment" variant="brand" onclick={handleNewClick}></lightning-button>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_small">
+            <div class="slds-grid slds-gutters slds-wrap slds-grid_align-spread">
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_3-of-12">
+                    <lightning-combobox
+                        label="Primary Industry"
+                        value={filterPrimaryIndustry}
+                        options={primaryIndustryOptions}
+                        onchange={handlePrimaryFilter}>
+                    </lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                    <lightning-input
+                        type="search"
+                        label="Search Sub-Industry"
+                        placeholder="Search sub-industry..."
+                        value={searchTerm}
+                        onchange={handleSearch}>
+                    </lightning-input>
+                </div>
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-combobox
+                        label="Assignment Group"
+                        value={filterGroup}
+                        options={groupOptions}
+                        placeholder="All"
+                        onchange={handleGroupFilter}>
+                    </lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-combobox
+                        label="LT Member"
+                        value={filterLTMember}
+                        options={ltMemberOptions}
+                        onchange={handleLTMemberFilter}>
+                    </lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12 slds-grid slds-grid_vertical-align-end slds-p-bottom_x-small">
+                    <div class="slds-grid slds-grid_vertical-align-center slds-gutters_x-small">
+                        <lightning-input
+                            type="checkbox"
+                            label="Active Only"
+                            checked={activeOnly}
+                            onchange={handleActiveToggle}>
+                        </lightning-input>
+                        <template if:true={hasFilters}>
+                            <lightning-button
+                                label="Clear"
+                                variant="base"
+                                onclick={clearFilters}
+                                class="slds-m-left_x-small">
+                            </lightning-button>
+                        </template>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Record count + page size -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_x-small slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+            <span class="slds-text-body_small slds-text-color_weak">
+                {pageLabel} assignments
+            </span>
+            <lightning-combobox
+                label=""
+                value={pageSizeStr}
+                options={pageSizeOptions}
+                onchange={handlePageSizeChange}
+                class="page-size-combo">
+            </lightning-combobox>
+        </div>
+
+        <!-- Bulk Action Bar -->
+        <template if:true={hasSelection}>
+            <div class="bulk-bar slds-p-horizontal_medium slds-p-vertical_x-small slds-m-bottom_x-small">
+                <div class="slds-grid slds-grid_vertical-align-center slds-gutters_small slds-wrap">
+                    <div class="slds-col slds-no-flex">
+                        <span class="slds-badge slds-badge_lightest slds-m-right_small">{selectedCount} selected</span>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-combobox
+                            label=""
+                            placeholder="LT Member..."
+                            value={bulkLTMember}
+                            options={bulkLTMemberOptions}
+                            onchange={handleBulkLTMember}
+                            class="bulk-combo">
+                        </lightning-combobox>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-combobox
+                            label=""
+                            placeholder="Assignment Group..."
+                            value={bulkGroup}
+                            options={bulkGroupOptions}
+                            onchange={handleBulkGroup}
+                            class="bulk-combo">
+                        </lightning-combobox>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-combobox
+                            label=""
+                            placeholder="Active status..."
+                            value={bulkActive}
+                            options={bulkActiveOptions}
+                            onchange={handleBulkActive}
+                            class="bulk-combo">
+                        </lightning-combobox>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-button
+                            label="Apply"
+                            variant="brand"
+                            onclick={handleBulkApply}
+                            disabled={isBulkApplyDisabled}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Clear Selection"
+                            variant="neutral"
+                            onclick={clearSelection}
+                            class="slds-m-left_x-small">
+                        </lightning-button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Table -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                <thead>
+                    <tr class="slds-line-height_reset">
+                        <th class="col-check">
+                            <lightning-input
+                                type="checkbox"
+                                label=""
+                                checked={allSelected}
+                                onchange={handleSelectAll}>
+                            </lightning-input>
+                        </th>
+                        <th class="col-primary">Primary Industry</th>
+                        <th class="col-sub-industry">Sub-Industry</th>
+                        <th class="col-group">Assignment Group</th>
+                        <th class="col-member">LT Member</th>
+                        <th class="col-active">Active</th>
+                        <th class="col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- New record row -->
+                    <template if:true={showNewRow}>
+                        <c-industry-assignment-row
+                            record={newRecord}
+                            primary-industry-options={primaryIndustryOptions}
+                            sub-industry-options={availableSubIndustryOptions}
+                            group-options={groupEditOptions}
+                            lt-member-options={ltMemberOptions}
+                            is-new="true"
+                            onsave={handleNewSave}
+                            oncancel={handleNewCancel}>
+                        </c-industry-assignment-row>
+                    </template>
+
+                    <!-- Existing records -->
+                    <template for:each={paginatedRecords} for:item="rec">
+                        <c-industry-assignment-row
+                            key={rec.Id}
+                            record={rec}
+                            selected={rec._selected}
+                            primary-industry-options={primaryIndustryOptions}
+                            sub-industry-options={subIndustryOptions}
+                            used-sub-industries={usedSubIndustriesArray}
+                            group-options={groupEditOptions}
+                            lt-member-options={ltMemberOptions}
+                            onsave={handleRowSave}
+                            ondelete={handleRowDelete}
+                            onrowselect={handleRowSelect}>
+                        </c-industry-assignment-row>
+                    </template>
+
+                    <!-- Empty state -->
+                    <template if:false={filteredRecords.length}>
+                        <template if:false={showNewRow}>
+                            <tr>
+                                <td colspan="7" class="slds-text-align_center slds-p-around_large slds-text-color_weak">
+                                    No assignments match the current filters.
+                                </td>
+                            </tr>
+                        </template>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination controls -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-grid slds-grid_align-center slds-grid_vertical-align-center slds-gutters_small">
+            <lightning-button
+                label="Previous"
+                icon-name="utility:chevronleft"
+                disabled={noPrevious}
+                onclick={handlePreviousPage}>
+            </lightning-button>
+            <span class="slds-text-body_small slds-text-color_weak page-indicator">
+                Page {currentPage} of {totalPages}
+            </span>
+            <lightning-button
+                label="Next"
+                icon-name="utility:chevronright"
+                icon-position="right"
+                disabled={noNext}
+                onclick={handleNextPage}>
+            </lightning-button>
+        </div>
+    </lightning-card>
+</template>

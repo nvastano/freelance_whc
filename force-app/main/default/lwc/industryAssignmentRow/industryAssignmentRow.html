@@ -1,0 +1,114 @@
+<template>
+    <!-- READ MODE -->
+    <template if:true={isReadMode}>
+        <tr class="slds-hint-parent">
+            <td>
+                <lightning-input
+                    type="checkbox"
+                    label=""
+                    checked={selected}
+                    onchange={handleCheckbox}>
+                </lightning-input>
+            </td>
+            <td>{displayPrimary}</td>
+            <td>{displaySubIndustry}</td>
+            <td>{displayGroup}</td>
+            <td>{displayMember}</td>
+            <td>
+                <span class={activeClass}>{activeLabel}</span>
+            </td>
+            <td>
+                <div class="slds-grid slds-grid_align-end slds-gutters_x-small">
+                    <lightning-button-icon
+                        icon-name="utility:edit"
+                        variant="border-filled"
+                        alternative-text="Edit"
+                        size="small"
+                        onclick={handleEdit}>
+                    </lightning-button-icon>
+                    <lightning-button-icon
+                        icon-name="utility:delete"
+                        variant="border-filled"
+                        alternative-text="Delete"
+                        size="small"
+                        icon-class="slds-icon-text-error"
+                        onclick={handleDelete}>
+                    </lightning-button-icon>
+                </div>
+            </td>
+        </tr>
+    </template>
+
+    <!-- EDIT MODE -->
+    <template if:true={isEditMode}>
+        <tr class="slds-hint-parent row-editing">
+            <td></td>
+            <td>
+                <lightning-combobox
+                    data-field="ZI_Primary_Industry__c"
+                    label=""
+                    placeholder="Primary Industry"
+                    value={draft.ZI_Primary_Industry__c}
+                    options={primaryIndustryOptions}
+                    onchange={handleFieldChange}>
+                </lightning-combobox>
+            </td>
+            <td>
+                <lightning-combobox
+                    data-field="ZI_Sub_Industry__c"
+                    label=""
+                    placeholder="Sub-Industry"
+                    value={draft.ZI_Sub_Industry__c}
+                    options={filteredSubOptions}
+                    onchange={handleFieldChange}>
+                </lightning-combobox>
+            </td>
+            <td>
+                <lightning-combobox
+                    data-field="Assignment_Group__c"
+                    label=""
+                    placeholder="Assignment Group"
+                    value={draft.Assignment_Group__c}
+                    options={groupOptions}
+                    onchange={handleFieldChange}>
+                </lightning-combobox>
+            </td>
+            <td>
+                <lightning-combobox
+                    data-field="LT_Member__c"
+                    label=""
+                    placeholder="LT Member"
+                    value={draft.LT_Member__c}
+                    options={ltMemberOptions}
+                    onchange={handleFieldChange}>
+                </lightning-combobox>
+            </td>
+            <td>
+                <lightning-input
+                    type="checkbox"
+                    data-field="Active__c"
+                    label="Active"
+                    checked={draft.Active__c}
+                    onchange={handleFieldChange}>
+                </lightning-input>
+            </td>
+            <td>
+                <template if:true={saveError}>
+                    <p class="slds-text-color_error slds-text-body_small slds-m-bottom_xx-small">{saveError}</p>
+                </template>
+                <div class="slds-grid slds-grid_align-end slds-gutters_x-small">
+                    <lightning-button
+                        label="Save"
+                        variant="brand"
+                        onclick={handleSave}>
+                    </lightning-button>
+                    <lightning-button
+                        label="Cancel"
+                        variant="neutral"
+                        onclick={handleCancel}>
+                    </lightning-button>
+                </div>
+            </td>
+        </tr>
+    </template>
+</template>
