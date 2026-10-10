@@ -34,6 +34,9 @@
                     ></lightning-input>
                     <template if:true={hasFolderSelected}>
                         <ul class="cadence-list slds-box slds-box_x-small slds-m-top_xx-small">
+                            <li class={allCadencesItemClass} onclick={handleShowAllCadences}>
+                                All Cadences in this Folder
+                            </li>
                             <template for:each={cadenceListForFolder} for:item="cadence">
                                 <li
                                     key={cadence.cadenceId}
@@ -66,14 +69,81 @@
                 </div>
             </div>
 
-            <template if:false={hasCadenceSelected}>
+            <template if:false={hasAnyViewSelected}>
                 <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
-                    Select a folder, then a cadence, to see its performance.
+                    Select a folder, then a cadence (or "All Cadences in this Folder"), to see performance.
                 </div>
             </template>
 
-            <template if:true={isLoadingData}>
+            <template if:true={isBusy}>
                 <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+
+            <template if:true={isAllCadencesView}>
+                <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+                    All Cadences — {selectedFolder}
+                </h2>
+
+                <div class="slds-grid slds-gutters slds-m-bottom_small">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                        <lightning-combobox
+                            name="barMetric"
+                            label="Compare by"
+                            options={barMetricOptions}
+                            value={selectedBarMetric}
+                            onchange={handleBarMetricChange}
+                        ></lightning-combobox>
+                    </div>
+                </div>
+
+                <template if:true={hasFolderCadenceSummaries}>
+                    <div class="chart-container bar-chart-container">
+                        <div class="slds-text-title_caps slds-m-bottom_x-small">
+                            {barMetricLabel} by Cadence — click a bar to drill in
+                        </div>
+                        <div class="bar-chart-scroll">
+                            <svg
+                                width={folderChartWidth}
+                                height={folderChartHeight}
+                                class="bar-chart"
+                            >
+                                <template for:each={folderBars} for:item="bar">
+                                    <g key={bar.key}>
+                                        <title>{bar.name}</title>
+                                        <rect
+                                            x={bar.x}
+                                            y={bar.y}
+                                            width={bar.width}
+                                            height={bar.height}
+                                            class="bar-rect"
+                                            data-id={bar.cadenceId}
+                                            onclick={handleBarClick}
+                                        ></rect>
+                                        <text x={bar.nameX} y={bar.labelY} class="bar-value-label">
+                                            {bar.displayValue}
+                                        </text>
+                                        <text
+                                            x={bar.nameX}
+                                            y={bar.nameY}
+                                            transform={bar.nameTransform}
+                                            class="bar-name-label"
+                                        >
+                                            {bar.shortName}
+                                        </text>
+                                    </g>
+                                </template>
+                            </svg>
+                        </div>
+                    </div>
+                </template>
+
+                <template if:false={hasFolderCadenceSummaries}>
+                    <template if:false={isBusy}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                            No active cadences with data in this date range for this folder.
+                        </div>
+                    </template>
+                </template>
             </template>
 
             <template if:true={hasCadenceSelected}>

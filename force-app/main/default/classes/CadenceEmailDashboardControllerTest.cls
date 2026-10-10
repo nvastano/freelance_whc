@@ -80,4 +80,54 @@ private class CadenceEmailDashboardControllerTest {
         }
         Test.stopTest();
     }
+
+    @isTest
+    static void testGetFolderCadenceMetricsWithNullInputsReturnsEmptyList() {
+        Test.startTest();
+        List<CadenceEmailDashboardController.CadenceSummary> results =
+            CadenceEmailDashboardController.getFolderCadenceMetrics(null, null, null);
+        Test.stopTest();
+
+        System.assertNotEquals(null, results, 'Expected a non-null (empty) list when inputs are missing');
+        System.assertEquals(0, results.size(), 'Expected no summaries when inputs are missing');
+    }
+
+    // Same DML-createable constraint as above applies to Folder-linked ActionCadence records, so this
+    // validates against the folder of a real, high-activity cadence rather than fabricated data.
+    @isTest(SeeAllData=true)
+    static void testGetFolderCadenceMetricsForRealFolderReturnsConsistentStructure() {
+        List<AggregateResult> topCadences = [
+            SELECT ActionCadenceId cadenceId, COUNT(Id) cnt
+            FROM ActionCadenceStepTracker
+            WHERE ActionCadenceId != null
+            GROUP BY ActionCadenceId
+            ORDER BY COUNT(Id) DESC
+            LIMIT 1
+        ];
+        if (topCadences.isEmpty()) {
+            return; // nothing active to validate against in this org snapshot
+        }
+        Id topCadenceId = (Id) topCadences[0].get('cadenceId');
+        List<ActionCadence> cadenceRows = [SELECT FolderId FROM ActionCadence WHERE Id = :topCadenceId LIMIT 1];
+        if (cadenceRows.isEmpty() || cadenceRows[0].FolderId == null) {
+            return; // this cadence isn't filed under a folder in this org snapshot
+        }
+
+        Test.startTest();
+        List<CadenceEmailDashboardController.CadenceSummary> results =
+            CadenceEmailDashboardController.getFolderCadenceMetrics(
+                cadenceRows[0].FolderId, Date.newInstance(2020, 1, 1), Date.today()
+            );
+        Test.stopTest();
+
+        System.assert(!results.isEmpty(), 'Expected at least one cadence summary for a real, populated folder');
+        for (CadenceEmailDashboardController.CadenceSummary cs : results) {
+            System.assertNotEquals(null, cs.cadenceId, 'Cadence summary should have an Id');
+            System.assertNotEquals(null, cs.name, 'Cadence summary should have a name');
+            System.assert(cs.opened <= cs.sent, 'Opened can never exceed sent');
+            System.assert(cs.clicked <= cs.sent, 'Clicked can never exceed sent');
+            System.assert(cs.openRate >= 0 && cs.openRate <= 100, 'Open rate should be a valid percentage');
+            System.assert(cs.clickRate >= 0 && cs.clickRate <= 100, 'Click rate should be a valid percentage');
+        }
+    }
 }

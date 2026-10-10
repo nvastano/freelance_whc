@@ -1,11 +1,25 @@
 import { LightningElement, wire } from 'lwc';
 import getCadenceOptions from '@salesforce/apex/CadenceEmailDashboardController.getCadenceOptions';
 import getDashboardData from '@salesforce/apex/CadenceEmailDashboardController.getDashboardData';
+import getFolderCadenceMetrics from '@salesforce/apex/CadenceEmailDashboardController.getFolderCadenceMetrics';
 
 const DEFAULT_RANGE_DAYS = 30;
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 160;
 const CHART_PADDING = 12;
+
+const BAR_WIDTH = 28;
+const BAR_GAP = 12;
+const BAR_CHART_HEIGHT = 220;
+const BAR_CHART_TOP_PADDING = 24;
+const BAR_CHART_BASELINE_PADDING = 56;
+const BAR_CHART_MIN_WIDTH = 600;
+
+const BAR_METRIC_OPTIONS = [
+    { label: 'Sent', value: 'sent' },
+    { label: 'Open Rate', value: 'openRate' },
+    { label: 'Click Rate', value: 'clickRate' }
+];
 
 export default class CadenceEmailDashboard extends LightningElement {
     allCadences = [];
@@ -17,8 +31,13 @@ export default class CadenceEmailDashboard extends LightningElement {
     endDate;
     isLoadingOptions = true;
     isLoadingData = false;
+    isLoadingFolderMetrics = false;
     error;
     dashboardData;
+
+    isAllCadencesView = false;
+    folderCadenceSummaries = [];
+    selectedBarMetric = 'openRate';
 
     connectedCallback() {
         const today = new Date();
@@ -57,6 +76,19 @@ export default class CadenceEmailDashboard extends LightningElement {
         return !!this.selectedCadenceId;
     }
 
+    get hasAnyViewSelected() {
+        return this.hasCadenceSelected || this.isAllCadencesView;
+    }
+
+    get isBusy() {
+        return this.isLoadingData || this.isLoadingFolderMetrics;
+    }
+
+    get selectedFolderId() {
+        const match = this.allCadences.find((c) => c.folderName === this.selectedFolder);
+        return match ? match.folderId : undefined;
+    }
+
     get cadenceListForFolder() {
         if (!this.selectedFolder) {
             return [];
@@ -68,10 +100,16 @@ export default class CadenceEmailDashboard extends LightningElement {
             .map((c) => ({
                 ...c,
                 itemClass:
-                    c.cadenceId === this.selectedCadenceId
+                    !this.isAllCadencesView && c.cadenceId === this.selectedCadenceId
                         ? 'cadence-item cadence-item_selected'
                         : 'cadence-item'
             }));
+    }
+
+    get allCadencesItemClass() {
+        return this.isAllCadencesView
+            ? 'cadence-item cadence-item_all cadence-item_selected'
+            : 'cadence-item cadence-item_all';
     }
 
     get selectedCadenceName() {
@@ -84,6 +122,8 @@ export default class CadenceEmailDashboard extends LightningElement {
         this.selectedCadenceId = undefined;
         this.cadenceSearchTerm = '';
         this.dashboardData = undefined;
+        this.isAllCadencesView = false;
+        this.folderCadenceSummaries = [];
     }
 
     handleCadenceSearch(event) {
@@ -92,17 +132,43 @@ export default class CadenceEmailDashboard extends LightningElement {
 
     handleCadenceSelect(event) {
         this.selectedCadenceId = event.currentTarget.dataset.id;
+        this.isAllCadencesView = false;
         this.loadDashboardData();
+    }
+
+    handleShowAllCadences() {
+        this.isAllCadencesView = true;
+        this.selectedCadenceId = undefined;
+        this.dashboardData = undefined;
+        this.loadFolderMetrics();
+    }
+
+    handleBarClick(event) {
+        this.selectedCadenceId = event.currentTarget.dataset.id;
+        this.isAllCadencesView = false;
+        this.loadDashboardData();
+    }
+
+    handleBarMetricChange(event) {
+        this.selectedBarMetric = event.detail.value;
     }
 
     handleStartDateChange(event) {
         this.startDate = event.target.value;
-        this.loadDashboardData();
+        this.refreshActiveView();
     }
 
     handleEndDateChange(event) {
         this.endDate = event.target.value;
-        this.loadDashboardData();
+        this.refreshActiveView();
+    }
+
+    refreshActiveView() {
+        if (this.isAllCadencesView) {
+            this.loadFolderMetrics();
+        } else {
+            this.loadDashboardData();
+        }
     }
 
     loadDashboardData() {
@@ -125,6 +191,30 @@ export default class CadenceEmailDashboard extends LightningElement {
             })
             .finally(() => {
                 this.isLoadingData = false;
+            });
+    }
+
+    loadFolderMetrics() {
+        const folderId = this.selectedFolderId;
+        if (!folderId || !this.startDate || !this.endDate) {
+            return;
+        }
+        this.isLoadingFolderMetrics = true;
+        this.error = undefined;
+        getFolderCadenceMetrics({
+            folderId,
+            startDate: this.startDate,
+            endDate: this.endDate
+        })
+            .then((result) => {
+                this.folderCadenceSummaries = result;
+            })
+            .catch((err) => {
+                this.error = this.extractErrorMessage(err);
+                this.folderCadenceSummaries = [];
+            })
+            .finally(() => {
+                this.isLoadingFolderMetrics = false;
             });
     }
 
@@ -202,5 +292,66 @@ export default class CadenceEmailDashboard extends LightningElement {
             return '';
         }
         return `${series[0].day} → ${series[series.length - 1].day}`;
+    }
+
+    get barMetricOptions() {
+        return BAR_METRIC_OPTIONS;
+    }
+
+    get barMetricLabel() {
+        const found = BAR_METRIC_OPTIONS.find((o) => o.value === this.selectedBarMetric);
+        return found ? found.label : '';
+    }
+
+    get hasFolderCadenceSummaries() {
+        return this.folderCadenceSummaries.length > 0;
+    }
+
+    get folderChartHeight() {
+        return BAR_CHART_HEIGHT;
+    }
+
+    get folderChartWidth() {
+        const count = this.folderCadenceSummaries.length;
+        const width = BAR_GAP + count * (BAR_WIDTH + BAR_GAP);
+        return Math.max(width, BAR_CHART_MIN_WIDTH);
+    }
+
+    get folderBars() {
+        const summaries = this.folderCadenceSummaries;
+        if (!summaries.length) {
+            return [];
+        }
+        const metric = this.selectedBarMetric;
+        const baselineY = BAR_CHART_HEIGHT - BAR_CHART_BASELINE_PADDING;
+        const availableHeight = baselineY - BAR_CHART_TOP_PADDING;
+        const maxValue = Math.max(...summaries.map((s) => s[metric] || 0), 0);
+        const sorted = [...summaries].sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
+
+        return sorted.map((s, index) => {
+            const value = s[metric] || 0;
+            const rawHeight = maxValue > 0 ? (value / maxValue) * availableHeight : 0;
+            const height = value > 0 ? Math.max(rawHeight, 2) : 0;
+            const x = BAR_GAP + index * (BAR_WIDTH + BAR_GAP);
+            const nameX = x + BAR_WIDTH / 2;
+            const nameY = baselineY + 14;
+            const shortName = s.name.length > 16 ? `${s.name.slice(0, 15)}…` : s.name;
+            return {
+                key: s.cadenceId,
+                cadenceId: s.cadenceId,
+                name: s.name,
+                shortName,
+                value,
+                displayValue: metric === 'sent' ? String(value) : `${value}%`,
+                x,
+                y: baselineY - height,
+                width: BAR_WIDTH,
+                height,
+                labelY: Math.max(baselineY - height - 6, 10),
+                nameX,
+                nameY,
+                nameTransform: `rotate(-40 ${nameX} ${nameY})`
+            };
+        });
     }
 }

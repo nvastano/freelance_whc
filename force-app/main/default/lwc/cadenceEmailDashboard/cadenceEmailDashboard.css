@@ -26,6 +26,12 @@
     color: #014486;
 }
 
+.cadence-item_all {
+    border-bottom: 1px solid #e5e5e5;
+    font-weight: 600;
+    color: #032d60;
+}
+
 .kpi-grid {
     text-align: center;
 }
@@ -88,3 +94,37 @@
     stroke-linejoin: round;
     stroke-linecap: round;
 }
+
+.bar-chart-container {
+    padding-bottom: 1.25rem;
+}
+
+.bar-chart-scroll {
+    overflow-x: auto;
+}
+
+.bar-chart {
+    display: block;
+}
+
+.bar-rect {
+    fill: #0176d3;
+    cursor: pointer;
+}
+
+.bar-rect:hover {
+    fill: #032d60;
+}
+
+.bar-value-label {
+    font-size: 10px;
+    fill: #032d60;
+    text-anchor: middle;
+}
+
+.bar-name-label {
+    font-size: 9px;
+    fill: #706e6b;
+    text-anchor: end;
+}
+

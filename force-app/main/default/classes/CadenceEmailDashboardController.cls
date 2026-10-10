@@ -6,11 +6,13 @@ public with sharing class CadenceEmailDashboardController {
         @AuraEnabled public Id cadenceId;
         @AuraEnabled public String name;
         @AuraEnabled public String folderName;
+        @AuraEnabled public Id folderId;
 
-        public CadenceOption(Id cadenceId, String name, String folderName) {
+        public CadenceOption(Id cadenceId, String name, String folderName, Id folderId) {
             this.cadenceId = cadenceId;
             this.name = name;
             this.folderName = String.isBlank(folderName) ? 'Uncategorized' : folderName;
+            this.folderId = folderId;
         }
     }
 
@@ -81,17 +83,31 @@ public with sharing class CadenceEmailDashboardController {
         @AuraEnabled public List<ClickedContact> clickedContacts = new List<ClickedContact>();
     }
 
+    public class CadenceSummary implements Comparable {
+        @AuraEnabled public Id cadenceId;
+        @AuraEnabled public String name;
+        @AuraEnabled public Integer sent = 0;
+        @AuraEnabled public Integer opened = 0;
+        @AuraEnabled public Integer clicked = 0;
+        @AuraEnabled public Decimal openRate = 0;
+        @AuraEnabled public Decimal clickRate = 0;
+
+        public Integer compareTo(Object other) {
+            return this.name.compareTo(((CadenceSummary) other).name);
+        }
+    }
+
     @AuraEnabled(cacheable=true)
     public static List<CadenceOption> getCadenceOptions() {
         List<CadenceOption> options = new List<CadenceOption>();
         for (ActionCadence ac : [
-            SELECT Id, Name, FolderName
+            SELECT Id, Name, FolderName, FolderId
             FROM ActionCadence
             WHERE State = 'Active'
             ORDER BY FolderName, Name
             LIMIT 2000
         ]) {
-            options.add(new CadenceOption(ac.Id, ac.Name, ac.FolderName));
+            options.add(new CadenceOption(ac.Id, ac.Name, ac.FolderName, ac.FolderId));
         }
         return options;
     }
@@ -325,6 +341,86 @@ public with sharing class CadenceEmailDashboardController {
         return data;
     }
 
+    @AuraEnabled(cacheable=true)
+    public static List<CadenceSummary> getFolderCadenceMetrics(Id folderId, Date startDate, Date endDate) {
+        List<CadenceSummary> results = new List<CadenceSummary>();
+        if (folderId == null || startDate == null || endDate == null) {
+            return results;
+        }
+
+        DateTime startDt = DateTime.newInstance(startDate, Time.newInstance(0, 0, 0, 0));
+        DateTime endDt = DateTime.newInstance(endDate.addDays(1), Time.newInstance(0, 0, 0, 0));
+
+        Map<Id, CadenceSummary> summaryByCadenceId = new Map<Id, CadenceSummary>();
+        for (ActionCadence ac : [
+            SELECT Id, Name
+            FROM ActionCadence
+            WHERE FolderId = :folderId AND State = 'Active'
+            ORDER BY Name
+            LIMIT 500
+        ]) {
+            CadenceSummary cs = new CadenceSummary();
+            cs.cadenceId = ac.Id;
+            cs.name = ac.Name;
+            summaryByCadenceId.put(ac.Id, cs);
+        }
+        if (summaryByCadenceId.isEmpty()) {
+            return results;
+        }
+
+        for (AggregateResult ar : [
+            SELECT ActionCadenceStepTracker.ActionCadenceId cadenceId, IsOpened isOpened,
+                   IsLinkClicked isClicked, COUNT(Id) cnt
+            FROM EmailMessage
+            WHERE ActionCadenceStepTracker.ActionCadenceId IN :summaryByCadenceId.keySet()
+              AND MessageDate >= :startDt AND MessageDate < :endDt
+            GROUP BY ActionCadenceStepTracker.ActionCadenceId, IsOpened, IsLinkClicked
+        ]) {
+            addCounts(
+                summaryByCadenceId, (Id) ar.get('cadenceId'), (Integer) ar.get('cnt'),
+                (Boolean) ar.get('isOpened'), (Boolean) ar.get('isClicked')
+            );
+        }
+
+        for (AggregateResult ar : [
+            SELECT ActionCadenceStepTracker.ActionCadenceId cadenceId, IsOpened isOpened,
+                   IsClicked isClicked, COUNT(Id) cnt
+            FROM ListEmailSentResult
+            WHERE ActionCadenceStepTracker.ActionCadenceId IN :summaryByCadenceId.keySet()
+              AND CreatedDate >= :startDt AND CreatedDate < :endDt
+              AND Result = 'Sent'
+            GROUP BY ActionCadenceStepTracker.ActionCadenceId, IsOpened, IsClicked
+        ]) {
+            addCounts(
+                summaryByCadenceId, (Id) ar.get('cadenceId'), (Integer) ar.get('cnt'),
+                (Boolean) ar.get('isOpened'), (Boolean) ar.get('isClicked')
+            );
+        }
+
+        for (CadenceSummary cs : summaryByCadenceId.values()) {
+            cs.openRate = rate(cs.opened, cs.sent);
+            cs.clickRate = rate(cs.clicked, cs.sent);
+            results.add(cs);
+        }
+        results.sort();
+        return results;
+    }
+
+    private static void addCounts(
+        Map<Id, CadenceSummary> summaryByCadenceId, Id cadenceId, Integer cnt, Boolean isOpened, Boolean isClicked
+    ) {
+        if (cadenceId == null) {
+            return;
+        }
+        CadenceSummary cs = summaryByCadenceId.get(cadenceId);
+        if (cs == null) {
+            return;
+        }
+        cs.sent += cnt;
+        if (isOpened) cs.opened += cnt;
+        if (isClicked) cs.clicked += cnt;
+    }
+
     private static Decimal rate(Integer numerator, Integer denominator) {
         if (denominator == null || denominator == 0) {
             return 0;
@@ -332,3 +428,4 @@ public with sharing class CadenceEmailDashboardController {
         return (Decimal.valueOf(numerator) / Decimal.valueOf(denominator) * 100).setScale(1);
     }
 }
+
