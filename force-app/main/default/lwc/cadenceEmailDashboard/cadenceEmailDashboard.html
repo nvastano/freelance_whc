@@ -84,7 +84,7 @@
                     All Cadences — {selectedFolder}
                 </h2>
 
-                <div class="slds-grid slds-gutters slds-m-bottom_small">
+                <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_small">
                     <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
                         <lightning-combobox
                             name="barMetric"
@@ -94,47 +94,77 @@
                             onchange={handleBarMetricChange}
                         ></lightning-combobox>
                     </div>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                        <lightning-input
+                            type="search"
+                            label="Filter cadences"
+                            placeholder="Search cadence names..."
+                            value={barSearchTerm}
+                            onchange={handleBarSearch}
+                        ></lightning-input>
+                    </div>
                 </div>
 
                 <template if:true={hasFolderCadenceSummaries}>
-                    <div class="chart-container bar-chart-container">
-                        <div class="slds-text-title_caps slds-m-bottom_x-small">
-                            {barMetricLabel} by Cadence — click a bar to drill in
+                    <template if:true={hasFilteredFolderSummaries}>
+                        <div class="chart-container bar-chart-container">
+                            <div class="slds-grid slds-grid_align-spread slds-wrap slds-m-bottom_x-small">
+                                <div class="slds-text-title_caps">
+                                    {barMetricLabel} by Cadence — click a bar to drill in
+                                </div>
+                                <div class="slds-text-body_small slds-text-color_weak">
+                                    {barCountLabel}
+                                </div>
+                            </div>
+                            <div class="bar-chart-scroll">
+                                <svg
+                                    width={folderChartWidth}
+                                    height={folderChartHeight}
+                                    class="bar-chart"
+                                >
+                                    <template for:each={folderBars} for:item="bar">
+                                        <g key={bar.key}>
+                                            <title>{bar.name}</title>
+                                            <rect
+                                                x={bar.x}
+                                                y={bar.y}
+                                                width={bar.width}
+                                                height={bar.height}
+                                                class="bar-rect"
+                                                data-id={bar.cadenceId}
+                                                onclick={handleBarClick}
+                                            ></rect>
+                                            <text x={bar.nameX} y={bar.labelY} class="bar-value-label">
+                                                {bar.displayValue}
+                                            </text>
+                                            <text
+                                                x={bar.nameX}
+                                                y={bar.nameY}
+                                                transform={bar.nameTransform}
+                                                class="bar-name-label"
+                                            >
+                                                {bar.shortName}
+                                            </text>
+                                        </g>
+                                    </template>
+                                </svg>
+                            </div>
+                            <template if:true={showToggleAllBarsButton}>
+                                <lightning-button
+                                    variant="base"
+                                    label={showAllBarsLabel}
+                                    onclick={handleToggleShowAllBars}
+                                    class="slds-m-top_x-small"
+                                ></lightning-button>
+                            </template>
                         </div>
-                        <div class="bar-chart-scroll">
-                            <svg
-                                width={folderChartWidth}
-                                height={folderChartHeight}
-                                class="bar-chart"
-                            >
-                                <template for:each={folderBars} for:item="bar">
-                                    <g key={bar.key}>
-                                        <title>{bar.name}</title>
-                                        <rect
-                                            x={bar.x}
-                                            y={bar.y}
-                                            width={bar.width}
-                                            height={bar.height}
-                                            class="bar-rect"
-                                            data-id={bar.cadenceId}
-                                            onclick={handleBarClick}
-                                        ></rect>
-                                        <text x={bar.nameX} y={bar.labelY} class="bar-value-label">
-                                            {bar.displayValue}
-                                        </text>
-                                        <text
-                                            x={bar.nameX}
-                                            y={bar.nameY}
-                                            transform={bar.nameTransform}
-                                            class="bar-name-label"
-                                        >
-                                            {bar.shortName}
-                                        </text>
-                                    </g>
-                                </template>
-                            </svg>
+                    </template>
+
+                    <template if:false={hasFilteredFolderSummaries}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                            No cadences in this folder match "{barSearchTerm}".
                         </div>
-                    </div>
+                    </template>
                 </template>
 
                 <template if:false={hasFolderCadenceSummaries}>

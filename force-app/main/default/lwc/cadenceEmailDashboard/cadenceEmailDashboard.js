@@ -14,6 +14,7 @@ const BAR_CHART_HEIGHT = 220;
 const BAR_CHART_TOP_PADDING = 24;
 const BAR_CHART_BASELINE_PADDING = 56;
 const BAR_CHART_MIN_WIDTH = 600;
+const BAR_CHART_DEFAULT_LIMIT = 20;
 
 const BAR_METRIC_OPTIONS = [
     { label: 'Sent', value: 'sent' },
@@ -38,6 +39,8 @@ export default class CadenceEmailDashboard extends LightningElement {
     isAllCadencesView = false;
     folderCadenceSummaries = [];
     selectedBarMetric = 'openRate';
+    barSearchTerm = '';
+    showAllBars = false;
 
     connectedCallback() {
         const today = new Date();
@@ -124,6 +127,8 @@ export default class CadenceEmailDashboard extends LightningElement {
         this.dashboardData = undefined;
         this.isAllCadencesView = false;
         this.folderCadenceSummaries = [];
+        this.barSearchTerm = '';
+        this.showAllBars = false;
     }
 
     handleCadenceSearch(event) {
@@ -140,6 +145,8 @@ export default class CadenceEmailDashboard extends LightningElement {
         this.isAllCadencesView = true;
         this.selectedCadenceId = undefined;
         this.dashboardData = undefined;
+        this.barSearchTerm = '';
+        this.showAllBars = false;
         this.loadFolderMetrics();
     }
 
@@ -151,6 +158,14 @@ export default class CadenceEmailDashboard extends LightningElement {
 
     handleBarMetricChange(event) {
         this.selectedBarMetric = event.detail.value;
+    }
+
+    handleBarSearch(event) {
+        this.barSearchTerm = event.target.value;
+    }
+
+    handleToggleShowAllBars() {
+        this.showAllBars = !this.showAllBars;
     }
 
     handleStartDateChange(event) {
@@ -307,28 +322,69 @@ export default class CadenceEmailDashboard extends LightningElement {
         return this.folderCadenceSummaries.length > 0;
     }
 
+    get filteredFolderSummaries() {
+        const term = this.barSearchTerm.toLowerCase().trim();
+        if (!term) {
+            return this.folderCadenceSummaries;
+        }
+        return this.folderCadenceSummaries.filter((s) => s.name.toLowerCase().includes(term));
+    }
+
+    get hasFilteredFolderSummaries() {
+        return this.filteredFolderSummaries.length > 0;
+    }
+
+    get isBarListTruncated() {
+        return (
+            !this.showAllBars &&
+            !this.barSearchTerm.trim() &&
+            this.filteredFolderSummaries.length > BAR_CHART_DEFAULT_LIMIT
+        );
+    }
+
+    get showAllBarsLabel() {
+        return this.showAllBars
+            ? 'Show top 20 only'
+            : `Show all ${this.filteredFolderSummaries.length} cadences`;
+    }
+
+    get showToggleAllBarsButton() {
+        return !this.barSearchTerm.trim() && this.filteredFolderSummaries.length > BAR_CHART_DEFAULT_LIMIT;
+    }
+
+    get barCountLabel() {
+        const total = this.filteredFolderSummaries.length;
+        const shown = this.folderBars.length;
+        if (shown === total) {
+            return `Showing all ${total} cadence${total === 1 ? '' : 's'}`;
+        }
+        return `Showing top ${shown} of ${total} cadences`;
+    }
+
     get folderChartHeight() {
         return BAR_CHART_HEIGHT;
     }
 
     get folderChartWidth() {
-        const count = this.folderCadenceSummaries.length;
+        const count = this.folderBars.length;
         const width = BAR_GAP + count * (BAR_WIDTH + BAR_GAP);
         return Math.max(width, BAR_CHART_MIN_WIDTH);
     }
 
     get folderBars() {
-        const summaries = this.folderCadenceSummaries;
+        const summaries = this.filteredFolderSummaries;
         if (!summaries.length) {
             return [];
         }
         const metric = this.selectedBarMetric;
+        const sorted = [...summaries].sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
+        const visible = this.isBarListTruncated ? sorted.slice(0, BAR_CHART_DEFAULT_LIMIT) : sorted;
+
         const baselineY = BAR_CHART_HEIGHT - BAR_CHART_BASELINE_PADDING;
         const availableHeight = baselineY - BAR_CHART_TOP_PADDING;
-        const maxValue = Math.max(...summaries.map((s) => s[metric] || 0), 0);
-        const sorted = [...summaries].sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
+        const maxValue = Math.max(...visible.map((s) => s[metric] || 0), 0);
 
-        return sorted.map((s, index) => {
+        return visible.map((s, index) => {
             const value = s[metric] || 0;
             const rawHeight = maxValue > 0 ? (value / maxValue) * availableHeight : 0;
             const height = value > 0 ? Math.max(rawHeight, 2) : 0;
