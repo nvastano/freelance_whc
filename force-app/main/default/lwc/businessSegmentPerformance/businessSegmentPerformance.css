@@ -1,0 +1,100 @@
+.filter-row {
+    align-items: flex-start;
+}
+
+.segment-list {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 0;
+    list-style: none;
+}
+
+.segment-item {
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+}
+
+.segment-item:hover {
+    background-color: #f3f3f3;
+}
+
+.segment-item_selected {
+    background-color: #eef4ff;
+    font-weight: 700;
+    color: #014486;
+}
+
+.segment-item_all {
+    border-bottom: 1px solid #e5e5e5;
+    font-weight: 600;
+    color: #032d60;
+}
+
+.kpi-grid {
+    text-align: center;
+}
+
+.kpi-tile {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.5rem;
+    padding: 0.9rem 0.5rem;
+    margin: 0.25rem;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #032d60;
+    line-height: 1.2;
+}
+
+.kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #706e6b;
+    margin-top: 0.15rem;
+}
+
+.chart-container {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+.bar-chart-container {
+    padding-bottom: 1.25rem;
+}
+
+.bar-chart-scroll {
+    overflow-x: auto;
+}
+
+.bar-chart {
+    display: block;
+}
+
+.bar-rect {
+    fill: #0176d3;
+    cursor: pointer;
+}
+
+.bar-rect:hover {
+    fill: #032d60;
+}
+
+.bar-value-label {
+    font-size: 10px;
+    fill: #032d60;
+    text-anchor: middle;
+}
+
+.bar-name-label {
+    font-size: 9px;
+    fill: #706e6b;
+    text-anchor: end;
+}

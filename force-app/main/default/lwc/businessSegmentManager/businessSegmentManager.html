@@ -1,0 +1,111 @@
+<template>
+    <lightning-card title="Business Segment Manager">
+        <div slot="actions">
+            <lightning-button label="+ New Business Type" variant="brand" onclick={handleNewClick}></lightning-button>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_small">
+            <div class="slds-grid slds-gutters slds-wrap slds-grid_align-spread">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-input
+                        type="search"
+                        label="Search Business Type"
+                        placeholder="Search business type..."
+                        value={searchTerm}
+                        onchange={handleSearch}
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                    <lightning-combobox
+                        label="Cycle"
+                        value={filterCycle}
+                        options={cycleFilterOptions}
+                        onchange={handleCycleFilter}
+                    ></lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12 slds-grid slds-grid_vertical-align-end slds-p-bottom_x-small">
+                    <template if:true={hasFilters}>
+                        <lightning-button label="Clear" variant="base" onclick={clearFilters}></lightning-button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Record count + page size -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_x-small slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+            <span class="slds-text-body_small slds-text-color_weak">{pageLabel} business types</span>
+            <lightning-combobox
+                label=""
+                value={pageSizeStr}
+                options={pageSizeOptions}
+                onchange={handlePageSizeChange}
+                class="page-size-combo"
+            ></lightning-combobox>
+        </div>
+
+        <!-- Table -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                <thead>
+                    <tr class="slds-line-height_reset">
+                        <th class="col-business">Business</th>
+                        <th class="col-cycle">Cycle</th>
+                        <th class="col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template if:true={showNewRow}>
+                        <c-business-segment-manager-row
+                            record={newRecord}
+                            cycle-options={cycleOptions}
+                            is-new="true"
+                            onsave={handleNewSave}
+                            oncancel={handleNewCancel}
+                        ></c-business-segment-manager-row>
+                    </template>
+
+                    <template for:each={paginatedRecords} for:item="rec">
+                        <c-business-segment-manager-row
+                            key={rec.Id}
+                            record={rec}
+                            cycle-options={cycleOptions}
+                            onsave={handleRowSave}
+                            ondelete={handleRowDelete}
+                        ></c-business-segment-manager-row>
+                    </template>
+
+                    <template if:false={hasRecords}>
+                        <template if:false={showNewRow}>
+                            <tr>
+                                <td colspan="3" class="slds-text-align_center slds-p-around_large slds-text-color_weak">
+                                    No business types match the current filters.
+                                </td>
+                            </tr>
+                        </template>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-grid slds-grid_align-center slds-grid_vertical-align-center slds-gutters_small">
+            <lightning-button
+                label="Previous"
+                icon-name="utility:chevronleft"
+                disabled={noPrevious}
+                onclick={handlePreviousPage}
+            ></lightning-button>
+            <span class="slds-text-body_small slds-text-color_weak page-indicator">
+                Page {currentPage} of {totalPages}
+            </span>
+            <lightning-button
+                label="Next"
+                icon-name="utility:chevronright"
+                icon-position="right"
+                disabled={noNext}
+                onclick={handleNextPage}
+            ></lightning-button>
+        </div>
+    </lightning-card>
+</template>

@@ -1,0 +1,59 @@
+<template>
+    <!-- READ MODE -->
+    <template if:true={isReadMode}>
+        <tr class="slds-hint-parent">
+            <td>{displayBusiness}</td>
+            <td>{displayCycle}</td>
+            <td>
+                <div class="slds-grid slds-grid_align-end slds-gutters_x-small">
+                    <lightning-button-icon
+                        icon-name="utility:edit"
+                        variant="border-filled"
+                        alternative-text="Edit"
+                        size="small"
+                        onclick={handleEdit}
+                    ></lightning-button-icon>
+                    <lightning-button-icon
+                        icon-name="utility:delete"
+                        variant="border-filled"
+                        alternative-text="Delete"
+                        size="small"
+                        icon-class="slds-icon-text-error"
+                        onclick={handleDelete}
+                    ></lightning-button-icon>
+                </div>
+            </td>
+        </tr>
+    </template>
+
+    <!-- EDIT MODE -->
+    <template if:true={isEditMode}>
+        <tr class="slds-hint-parent row-editing">
+            <td>
+                <lightning-input
+                    data-field="Business__c"
+                    label=""
+                    placeholder="Business type"
+                    value={draft.Business__c}
+                    onchange={handleFieldChange}
+                ></lightning-input>
+            </td>
+            <td>
+                <lightning-combobox
+                    data-field="Cycle__c"
+                    label=""
+                    placeholder="Cycle"
+                    value={draft.Cycle__c}
+                    options={cycleOptions}
+                    onchange={handleFieldChange}
+                ></lightning-combobox>
+            </td>
+            <td>
+                <div class="slds-grid slds-grid_align-end slds-gutters_x-small">
+                    <lightning-button label="Save" variant="brand" onclick={handleSave}></lightning-button>
+                    <lightning-button label="Cancel" variant="neutral" onclick={handleCancel}></lightning-button>
+                </div>
+            </td>
+        </tr>
+    </template>
+</template>

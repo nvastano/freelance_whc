@@ -1,0 +1,254 @@
+<template>
+    <lightning-card title="Business Type Performance" icon-name="standard:opportunity">
+        <div class="slds-p-horizontal_medium">
+
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-theme_error" role="alert">
+                    <span>{error}</span>
+                </div>
+            </template>
+
+            <!-- Filters -->
+            <div class="slds-grid slds-gutters slds-wrap filter-row">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                    <lightning-combobox
+                        name="cycle"
+                        label="Cycle"
+                        placeholder="Select a cycle"
+                        options={cycleOptionsList}
+                        value={selectedCycle}
+                        onchange={handleCycleChange}
+                        disabled={isLoadingOptions}
+                    ></lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <label class="slds-form-element__label">Business Type</label>
+                    <lightning-input
+                        type="search"
+                        variant="label-hidden"
+                        placeholder="Search business types in this cycle..."
+                        value={segmentSearchTerm}
+                        onchange={handleSegmentSearch}
+                        disabled={isCycleNotSelected}
+                    ></lightning-input>
+                    <template if:true={hasCycleSelected}>
+                        <ul class="segment-list slds-box slds-box_x-small slds-m-top_xx-small">
+                            <li class={allSegmentsItemClass} onclick={handleShowAllSegments}>
+                                All Business Types in this Cycle
+                            </li>
+                            <template for:each={segmentListForCycle} for:item="segment">
+                                <li
+                                    key={segment.segmentId}
+                                    class={segment.itemClass}
+                                    data-id={segment.segmentId}
+                                    onclick={handleSegmentSelect}
+                                >
+                                    {segment.business}
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-input
+                        type="date"
+                        label="Start date"
+                        value={startDate}
+                        onchange={handleStartDateChange}
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+                    <lightning-input
+                        type="date"
+                        label="End date"
+                        value={endDate}
+                        onchange={handleEndDateChange}
+                    ></lightning-input>
+                </div>
+            </div>
+
+            <template if:false={hasAnyViewSelected}>
+                <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                    Select a cycle, then a business type (or "All Business Types in this Cycle"), to see performance.
+                </div>
+            </template>
+
+            <template if:true={isBusy}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+
+            <!-- All segments in cycle: bar chart -->
+            <template if:true={isAllSegmentsView}>
+                <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+                    All Business Types — {selectedCycle}
+                </h2>
+
+                <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_small">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                        <lightning-combobox
+                            name="barMetric"
+                            label="Compare by"
+                            options={barMetricOptions}
+                            value={selectedBarMetric}
+                            onchange={handleBarMetricChange}
+                        ></lightning-combobox>
+                    </div>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                        <lightning-input
+                            type="search"
+                            label="Filter business types"
+                            placeholder="Search business type names..."
+                            value={barSearchTerm}
+                            onchange={handleBarSearch}
+                        ></lightning-input>
+                    </div>
+                </div>
+
+                <template if:true={hasCycleSegmentPerformances}>
+                    <template if:true={hasFilteredCycleSegments}>
+                        <div class="chart-container bar-chart-container">
+                            <div class="slds-grid slds-grid_align-spread slds-wrap slds-m-bottom_x-small">
+                                <div class="slds-text-title_caps">
+                                    {barMetricLabel} by Business Type — click a bar to drill in
+                                </div>
+                                <div class="slds-text-body_small slds-text-color_weak">
+                                    {barCountLabel}
+                                </div>
+                            </div>
+                            <div class="bar-chart-scroll">
+                                <svg width={cycleChartWidth} height={cycleChartHeight} class="bar-chart">
+                                    <template for:each={cycleBars} for:item="bar">
+                                        <g key={bar.key}>
+                                            <title>{bar.business}</title>
+                                            <rect
+                                                x={bar.x}
+                                                y={bar.y}
+                                                width={bar.width}
+                                                height={bar.height}
+                                                class="bar-rect"
+                                                data-id={bar.segmentId}
+                                                onclick={handleBarClick}
+                                            ></rect>
+                                            <text x={bar.nameX} y={bar.labelY} class="bar-value-label">
+                                                {bar.displayValue}
+                                            </text>
+                                            <text
+                                                x={bar.nameX}
+                                                y={bar.nameY}
+                                                transform={bar.nameTransform}
+                                                class="bar-name-label"
+                                            >
+                                                {bar.shortName}
+                                            </text>
+                                        </g>
+                                    </template>
+                                </svg>
+                            </div>
+                            <template if:true={showToggleAllBarsButton}>
+                                <lightning-button
+                                    variant="base"
+                                    label={showAllBarsLabel}
+                                    onclick={handleToggleShowAllBars}
+                                    class="slds-m-top_x-small"
+                                ></lightning-button>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template if:false={hasFilteredCycleSegments}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                            No business types in this cycle match "{barSearchTerm}".
+                        </div>
+                    </template>
+                </template>
+
+                <template if:false={hasCycleSegmentPerformances}>
+                    <template if:false={isBusy}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                            No activity in this date range for this cycle.
+                        </div>
+                    </template>
+                </template>
+            </template>
+
+            <!-- Single segment detail -->
+            <template if:true={hasSegmentSelected}>
+                <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+                    {selectedSegmentName}
+                </h2>
+
+                <template if:true={metrics}>
+                    <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        {accountCount} account(s) assigned to this business type
+                    </div>
+
+                    <div class="slds-text-heading_x-small slds-m-bottom_x-small">Email</div>
+                    <div class="slds-grid slds-gutters slds-wrap kpi-grid">
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailSent}</div>
+                            <div class="kpi-label">Sent</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailOpened}</div>
+                            <div class="kpi-label">Opened</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailClicked}</div>
+                            <div class="kpi-label">Clicked</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailReplied}</div>
+                            <div class="kpi-label">Replied</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailBounced}</div>
+                            <div class="kpi-label">Bounced</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailOpenRate}%</div>
+                            <div class="kpi-label">Open Rate</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.emailClickRate}%</div>
+                            <div class="kpi-label">Click Rate</div>
+                        </div>
+                    </div>
+
+                    <div class="slds-text-heading_x-small slds-m-bottom_x-small slds-m-top_medium">LinkedIn</div>
+                    <div class="slds-grid slds-gutters slds-wrap kpi-grid">
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.linkedInSent}</div>
+                            <div class="kpi-label">Sent</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.linkedInConnected}</div>
+                            <div class="kpi-label">Connected</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.linkedInConnectRate}%</div>
+                            <div class="kpi-label">Connect Rate</div>
+                        </div>
+                    </div>
+
+                    <div class="slds-text-heading_x-small slds-m-bottom_x-small slds-m-top_medium">Calls</div>
+                    <div class="slds-grid slds-gutters slds-wrap kpi-grid">
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.callsMade}</div>
+                            <div class="kpi-label">Made</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.callsConnected}</div>
+                            <div class="kpi-label">Connected</div>
+                        </div>
+                        <div class="slds-col kpi-tile">
+                            <div class="kpi-value">{metrics.callConnectRate}%</div>
+                            <div class="kpi-label">Connect Rate</div>
+                        </div>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

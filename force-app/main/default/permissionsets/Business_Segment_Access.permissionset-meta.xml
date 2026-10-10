@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Business Segment Access</label>
+    <description>Read/edit access to the Business Segment object and its Account lookup, used by the Business Type Performance dashboard.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <objectPermissions>
+        <object>Business_Segment__c</object>
+        <allowCreate>true</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>true</allowEdit>
+        <allowDelete>true</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>true</modifyAllRecords>
+    </objectPermissions>
+    <fieldPermissions>
+        <field>Account.Business_Segment__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <tabSettings>
+        <tab>Business_Segment__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+</PermissionSet>

@@ -1,0 +1,15 @@
+:host {
+    display: contents;
+}
+
+tr.row-editing {
+    background-color: #f8f8f8;
+}
+
+td {
+    padding: 0.4rem 0.75rem;
+    vertical-align: middle;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cycle__c</fullName>
+    <label>Cycle</label>
+    <type>Picklist</type>
+    <required>true</required>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Cycle 1 - January</fullName>
+                <default>false</default>
+                <label>Cycle 1 - January</label>
+            </value>
+            <value>
+                <fullName>Cycle 2 - February</fullName>
+                <default>false</default>
+                <label>Cycle 2 - February</label>
+            </value>
+            <value>
+                <fullName>Cycle 3 - March</fullName>
+                <default>false</default>
+                <label>Cycle 3 - March</label>
+            </value>
+            <value>
+                <fullName>Cycle 4 - April</fullName>
+                <default>false</default>
+                <label>Cycle 4 - April</label>
+            </value>
+            <value>
+                <fullName>Cycle 5 - July</fullName>
+                <default>false</default>
+                <label>Cycle 5 - July</label>
+            </value>
+            <value>
+                <fullName>Cycle 6 - August</fullName>
+                <default>false</default>
+                <label>Cycle 6 - August</label>
+            </value>
+            <value>
+                <fullName>Cycle 7 - September</fullName>
+                <default>false</default>
+                <label>Cycle 7 - September</label>
+            </value>
+            <value>
+                <fullName>Cycle 8 - October</fullName>
+                <default>false</default>
+                <label>Cycle 8 - October</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
