@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Report xmlns="http://soap.sforce.com/2006/04/metadata">
+    <columns>
+        <field>Account.DOZISF__Zoominfo_Intent__r$DOZISF__Categories__c</field>
+    </columns>
+    <columns>
+        <field>Account.DOZISF__Zoominfo_Intent__r$DOZISF__Topic__c</field>
+    </columns>
+    <columns>
+        <field>Account.DOZISF__Zoominfo_Intent__r$DOZISF__Surge_Score__c</field>
+    </columns>
+    <columns>
+        <field>Account.DOZISF__Zoominfo_Intent__r$DOZISF__Signal_Date__c</field>
+    </columns>
+    <filter>
+        <criteriaItems>
+            <column>Account$Business_Type__c</column>
+            <columnToColumn>false</columnToColumn>
+            <isUnlocked>true</isUnlocked>
+            <operator>equals</operator>
+            <value>Franchise Models,Multi-Unit Models,Subscription / Membership Models</value>
+        </criteriaItems>
+        <criteriaItems>
+            <column>Account$Account_Status_Reason__c</column>
+            <columnToColumn>false</columnToColumn>
+            <isUnlocked>true</isUnlocked>
+            <operator>equals</operator>
+            <value>,No Budget,Seeking Services Outside Capabilities,Red Tape Industry,Wrong Timing (Budget Cycle),Leadership Transition,Using Another Agency (Revisit Later),External Support Not Needed At This Time,&quot;Interested, Engaging&quot;,Contacted: No Budget,Contacted: Seeking Services Outside Capabilities,Initial Review: Red Tape Industry,New: Accidental Push,Initial Review: Unqualified,In Conversation,Relationship Building,Revenue Tier Too High,Needs New Messaging,Account Pool,International,Wait for Portfolio</value>
+        </criteriaItems>
+        <criteriaItems>
+            <column>Account$Partner_Type__c</column>
+            <columnToColumn>false</columnToColumn>
+            <isUnlocked>true</isUnlocked>
+            <operator>notEqual</operator>
+            <value>Brokerage,VC Fund</value>
+        </criteriaItems>
+    </filter>
+    <format>Summary</format>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Account$Business_Type__c</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Account$Name</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Account$Owner</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <name>Podcast Media w/ Zoom Info Intent</name>
+    <params>
+        <name>co</name>
+        <value>1</value>
+    </params>
+    <reportType>Accounts_w_Zoom_Info_Intent__c</reportType>
+    <scope>organization</scope>
+    <showDetails>true</showDetails>
+    <showGrandTotal>true</showGrandTotal>
+    <showSubTotals>true</showSubTotals>
+    <timeFrameFilter>
+        <dateColumn>Account$CreatedDate</dateColumn>
+        <interval>INTERVAL_CUSTOM</interval>
+    </timeFrameFilter>
+</Report>
