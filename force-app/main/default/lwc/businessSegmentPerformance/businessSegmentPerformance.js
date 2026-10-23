@@ -7,6 +7,7 @@ import getCyclePerformance from '@salesforce/apex/BusinessSegmentPerformanceCont
 const DEFAULT_RANGE_DAYS = 30;
 
 const BAR_WIDTH = 28;
+const BAR_WIDTH_MAX = 80;
 const BAR_GAP = 12;
 const BAR_CHART_HEIGHT = 220;
 const BAR_CHART_TOP_PADDING = 24;
@@ -43,6 +44,8 @@ export default class BusinessSegmentPerformance extends LightningElement {
     selectedBarMetric = 'emailOpenRate';
     barSearchTerm = '';
     showAllBars = false;
+    chartContainerWidth = BAR_CHART_MIN_WIDTH;
+    _resizeObserver;
 
     connectedCallback() {
         const today = new Date();
@@ -50,6 +53,30 @@ export default class BusinessSegmentPerformance extends LightningElement {
         past.setDate(today.getDate() - DEFAULT_RANGE_DAYS);
         this.endDate = this.toIsoDate(today);
         this.startDate = this.toIsoDate(past);
+    }
+
+    renderedCallback() {
+        if (this._resizeObserver) {
+            return;
+        }
+        const el = this.template.querySelector('.bar-chart-scroll');
+        if (!el) {
+            return;
+        }
+        this._resizeObserver = new ResizeObserver((entries) => {
+            const width = entries[0].contentRect.width;
+            if (width && Math.abs(width - this.chartContainerWidth) > 1) {
+                this.chartContainerWidth = width;
+            }
+        });
+        this._resizeObserver.observe(el);
+    }
+
+    disconnectedCallback() {
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = undefined;
+        }
     }
 
     toIsoDate(d) {
@@ -309,9 +336,19 @@ export default class BusinessSegmentPerformance extends LightningElement {
         return BAR_CHART_HEIGHT;
     }
 
+    computeBarWidth(count) {
+        if (!count) {
+            return BAR_WIDTH;
+        }
+        const available = this.chartContainerWidth - BAR_GAP * (count + 1);
+        const natural = available / count;
+        return Math.min(Math.max(natural, BAR_WIDTH), BAR_WIDTH_MAX);
+    }
+
     get cycleChartWidth() {
         const count = this.cycleBars.length;
-        const width = BAR_GAP + count * (BAR_WIDTH + BAR_GAP);
+        const barWidth = this.computeBarWidth(count);
+        const width = BAR_GAP + count * (barWidth + BAR_GAP);
         return Math.max(width, BAR_CHART_MIN_WIDTH);
     }
 
@@ -327,6 +364,7 @@ export default class BusinessSegmentPerformance extends LightningElement {
         );
         const visible = this.isBarListTruncated ? sorted.slice(0, BAR_CHART_DEFAULT_LIMIT) : sorted;
 
+        const barWidth = this.computeBarWidth(visible.length);
         const baselineY = BAR_CHART_HEIGHT - BAR_CHART_BASELINE_PADDING;
         const availableHeight = baselineY - BAR_CHART_TOP_PADDING;
         const maxValue = Math.max(...visible.map((s) => s.metrics[metric] || 0), 0);
@@ -335,8 +373,8 @@ export default class BusinessSegmentPerformance extends LightningElement {
             const value = s.metrics[metric] || 0;
             const rawHeight = maxValue > 0 ? (value / maxValue) * availableHeight : 0;
             const height = value > 0 ? Math.max(rawHeight, 2) : 0;
-            const x = BAR_GAP + index * (BAR_WIDTH + BAR_GAP);
-            const nameX = x + BAR_WIDTH / 2;
+            const x = BAR_GAP + index * (barWidth + BAR_GAP);
+            const nameX = x + barWidth / 2;
             const nameY = baselineY + 14;
             const shortName = s.business.length > 16 ? `${s.business.slice(0, 15)}…` : s.business;
             return {
@@ -348,7 +386,7 @@ export default class BusinessSegmentPerformance extends LightningElement {
                 displayValue: isRate ? `${value}%` : String(value),
                 x,
                 y: baselineY - height,
-                width: BAR_WIDTH,
+                width: barWidth,
                 height,
                 labelY: Math.max(baselineY - height - 6, 10),
                 nameX,
