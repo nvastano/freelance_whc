@@ -76,32 +76,23 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         return this.matchingRows.map((r) => this.decorateRow(r));
     }
 
-    get newIntentPanelRows() {
-        const flattened = [];
-        this.matchingRows.forEach((row) => {
-            row.newIntentSignals.forEach((s, idx) => {
-                flattened.push({
-                    key: `${row.accountId}-ni-${idx}`,
-                    accountUrl: `/lightning/r/Account/${row.accountId}/view`,
-                    accountName: row.accountName,
-                    text: `${s.topic} (score ${s.surgeScore}, ${s.signalDate})${
-                        s.suggestedCadenceName ? ' → ' + s.suggestedCadenceName : ''
-                    }`
-                });
-            });
-        });
-        return flattened;
-    }
-
-    get hasNewIntentPanelRows() {
-        return this.newIntentPanelRows.length > 0;
-    }
-
     decorateRow(row) {
+        const hasNewIntent = row.newIntentSignals.length > 0;
         return {
             accountId: row.accountId,
             accountName: row.accountName,
             accountUrl: `/lightning/r/Account/${row.accountId}/view`,
+            hasNewIntent,
+            newIntentTooltip: hasNewIntent
+                ? row.newIntentSignals
+                      .map(
+                          (s) =>
+                              `${s.topic} (score ${s.surgeScore}, ${s.signalDate})${
+                                  s.suggestedCadenceName ? ' → ' + s.suggestedCadenceName : ''
+                              }`
+                      )
+                      .join('\n')
+                : '',
             activeCadenceLines: row.activeCadences.map((c, idx) => ({
                 key: `${row.accountId}-ac-${idx}`,
                 text: `${c.cadenceName} — ${c.contactName}`
@@ -111,6 +102,50 @@ export default class MktCadenceTaskDashboard extends LightningElement {
                 text: `${t.subject} — ${t.contactName}${t.dueDate ? ' (due ' + t.dueDate + ')' : ''}`
             }))
         };
+    }
+
+    handleExportIntents() {
+        const header = ['Account', 'Topic', 'Category', 'Surge Score', 'Signal Date', 'Suggested Cadence'];
+        const lines = [header.map((h) => this.csvEscape(h)).join(',')];
+
+        this.matchingRows.forEach((row) => {
+            row.newIntentSignals.forEach((s) => {
+                lines.push(
+                    [
+                        row.accountName,
+                        s.topic,
+                        s.category,
+                        s.surgeScore,
+                        s.signalDate,
+                        s.suggestedCadenceName || ''
+                    ]
+                        .map((v) => this.csvEscape(v))
+                        .join(',')
+                );
+            });
+        });
+
+        const csvContent = lines.join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `mkt_new_intent_signals_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    csvEscape(value) {
+        const str = value === null || value === undefined ? '' : String(value);
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    get newIntentCount() {
+        return this.accountRows.filter((r) => r.newIntentSignals.length > 0).length;
+    }
+
+    get hasExportableIntents() {
+        return this.matchingRows.some((r) => r.newIntentSignals.length > 0);
     }
 
     get hasRows() {
@@ -123,10 +158,6 @@ export default class MktCadenceTaskDashboard extends LightningElement {
 
     get rowCountLabel() {
         return String(this.filteredRows.length);
-    }
-
-    get newIntentCount() {
-        return this.accountRows.filter((r) => r.newIntentSignals.length > 0).length;
     }
 
     get pendingFollowUpCount() {

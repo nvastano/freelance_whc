@@ -44,17 +44,13 @@
                     </div>
                 </div>
 
-                <template lwc:if={hasNewIntentPanelRows}>
-                    <div class="intent-panel slds-m-bottom_medium">
-                        <div class="intent-panel-header">🔔 New Intent Signals (last 7 days)</div>
-                        <div class="intent-panel-body">
-                            <template for:each={newIntentPanelRows} for:item="line">
-                                <div key={line.key} class="new-intent-badge">
-                                    <a href={line.accountUrl} target="_blank">{line.accountName}</a>
-                                    — {line.text}
-                                </div>
-                            </template>
-                        </div>
+                <template lwc:if={hasExportableIntents}>
+                    <div class="slds-m-bottom_small">
+                        <lightning-button
+                            label="Export New Intent Signals (CSV)"
+                            icon-name="utility:download"
+                            onclick={handleExportIntents}
+                        ></lightning-button>
                     </div>
                 </template>
 
@@ -72,6 +68,15 @@
                                 <tr key={row.accountId}>
                                     <td>
                                         <a href={row.accountUrl} target="_blank">{row.accountName}</a>
+                                        <template lwc:if={row.hasNewIntent}>
+                                            <lightning-icon
+                                                icon-name="utility:notification"
+                                                size="xx-small"
+                                                variant="warning"
+                                                class="new-intent-icon"
+                                                title={row.newIntentTooltip}
+                                            ></lightning-icon>
+                                        </template>
                                     </td>
                                     <td>
                                         <template for:each={row.activeCadenceLines} for:item="line">

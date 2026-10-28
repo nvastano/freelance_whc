@@ -38,26 +38,8 @@
     padding: 0.1rem 0;
 }
 
-.intent-panel {
-    background-color: #fff3da;
-    border: 1px solid #fe9339;
-    border-radius: 0.5rem;
-    padding: 0.6rem 0.9rem;
-}
-
-.intent-panel-header {
-    font-weight: 700;
-    color: #8a4b00;
-    margin-bottom: 0.4rem;
-}
-
-.intent-panel-body {
-    max-height: 180px;
-    overflow-y: auto;
-}
-
-.new-intent-badge {
-    font-size: 0.8125rem;
-    color: #5c3200;
-    padding: 0.15rem 0;
+.new-intent-icon {
+    margin-left: 0.3rem;
+    vertical-align: middle;
+    cursor: help;
 }
