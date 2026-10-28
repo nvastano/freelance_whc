@@ -11,6 +11,14 @@
                     ></lightning-combobox>
                 </div>
                 <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-combobox
+                        label="Filter by Cadence"
+                        value={selectedCadenceId}
+                        options={cadenceFilterOptions}
+                        onchange={handleCadenceChange}
+                    ></lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
                     <lightning-input
                         type="search"
                         label="Search Account"

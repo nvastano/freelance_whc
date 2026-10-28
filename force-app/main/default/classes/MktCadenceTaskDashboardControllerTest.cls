@@ -2,10 +2,10 @@
 private class MktCadenceTaskDashboardControllerTest {
 
     @isTest
-    static void testGetDashboardDataWithNoOwnerFilterReturnsNonNullList() {
+    static void testGetDashboardDataWithNoFiltersReturnsNonNullList() {
         Test.startTest();
         List<MktCadenceTaskDashboardController.AccountRow> rows =
-            MktCadenceTaskDashboardController.getDashboardData(null);
+            MktCadenceTaskDashboardController.getDashboardData(null, null);
         Test.stopTest();
 
         System.assertNotEquals(null, rows, 'Expected a non-null (possibly empty) list');
@@ -15,7 +15,7 @@ private class MktCadenceTaskDashboardControllerTest {
     static void testGetDashboardDataWithBogusOwnerReturnsEmptyList() {
         Test.startTest();
         List<MktCadenceTaskDashboardController.AccountRow> rows =
-            MktCadenceTaskDashboardController.getDashboardData(UserInfo.getUserId());
+            MktCadenceTaskDashboardController.getDashboardData(UserInfo.getUserId(), null);
         Test.stopTest();
 
         System.assertNotEquals(null, rows, 'Expected a non-null (possibly empty) list even for a user with no MKT activity');
@@ -40,6 +40,20 @@ private class MktCadenceTaskDashboardControllerTest {
     }
 
     @isTest(SeeAllData=true)
+    static void testGetCadenceOptionsReturnsRealRunningMktCadences() {
+        Test.startTest();
+        List<MktCadenceTaskDashboardController.CadenceOption> options =
+            MktCadenceTaskDashboardController.getCadenceOptions();
+        Test.stopTest();
+
+        System.assertNotEquals(null, options, 'Expected a non-null (possibly empty) list of cadences');
+        for (MktCadenceTaskDashboardController.CadenceOption opt : options) {
+            System.assertNotEquals(null, opt.cadenceId, 'Cadence option should have an Id');
+            System.assertNotEquals(null, opt.name, 'Cadence option should have a name');
+        }
+    }
+
+    @isTest(SeeAllData=true)
     static void testGetDashboardDataForRealMktOwnerReturnsConsistentStructure() {
         List<MktCadenceTaskDashboardController.UserOption> options =
             MktCadenceTaskDashboardController.getUserOptions();
@@ -49,7 +63,7 @@ private class MktCadenceTaskDashboardControllerTest {
 
         Test.startTest();
         List<MktCadenceTaskDashboardController.AccountRow> rows =
-            MktCadenceTaskDashboardController.getDashboardData(options[0].userId);
+            MktCadenceTaskDashboardController.getDashboardData(options[0].userId, null);
         Test.stopTest();
 
         for (MktCadenceTaskDashboardController.AccountRow row : rows) {
@@ -82,9 +96,9 @@ private class MktCadenceTaskDashboardControllerTest {
 
         Test.startTest();
         List<MktCadenceTaskDashboardController.AccountRow> allRows =
-            MktCadenceTaskDashboardController.getDashboardData(null);
+            MktCadenceTaskDashboardController.getDashboardData(null, null);
         List<MktCadenceTaskDashboardController.AccountRow> filteredRows =
-            MktCadenceTaskDashboardController.getDashboardData(options[0].userId);
+            MktCadenceTaskDashboardController.getDashboardData(options[0].userId, null);
         Test.stopTest();
 
         Set<Id> allAccountIds = new Set<Id>();
@@ -96,6 +110,35 @@ private class MktCadenceTaskDashboardControllerTest {
                 allAccountIds.contains(row.accountId),
                 'Every account visible to a single-owner filter should also appear in the unfiltered (all users) view'
             );
+        }
+    }
+
+    @isTest(SeeAllData=true)
+    static void testDashboardDataForRealCadenceOnlyIncludesAccountsRunningThatCadence() {
+        List<MktCadenceTaskDashboardController.CadenceOption> cadenceOptions =
+            MktCadenceTaskDashboardController.getCadenceOptions();
+        if (cadenceOptions.isEmpty()) {
+            return; // nothing running in this org snapshot
+        }
+
+        Test.startTest();
+        List<MktCadenceTaskDashboardController.AccountRow> rows =
+            MktCadenceTaskDashboardController.getDashboardData(null, cadenceOptions[0].cadenceId);
+        Test.stopTest();
+
+        System.assert(!rows.isEmpty(), 'Expected at least one account running the filtered cadence');
+        for (MktCadenceTaskDashboardController.AccountRow row : rows) {
+            System.assert(
+                !row.activeCadences.isEmpty(),
+                'With a cadence filter applied, every returned account should be actively running that cadence'
+            );
+            Boolean matchesFilteredCadence = false;
+            for (MktCadenceTaskDashboardController.ActiveCadenceInfo info : row.activeCadences) {
+                if (info.cadenceName == cadenceOptions[0].name) {
+                    matchesFilteredCadence = true;
+                }
+            }
+            System.assert(matchesFilteredCadence, 'Returned account should be running the specific filtered cadence');
         }
     }
 }

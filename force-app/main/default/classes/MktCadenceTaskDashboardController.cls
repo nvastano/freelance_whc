@@ -12,6 +12,15 @@ public with sharing class MktCadenceTaskDashboardController {
         }
     }
 
+    public class CadenceOption {
+        @AuraEnabled public Id cadenceId;
+        @AuraEnabled public String name;
+        public CadenceOption(Id cadenceId, String name) {
+            this.cadenceId = cadenceId;
+            this.name = name;
+        }
+    }
+
     public class ActiveCadenceInfo {
         @AuraEnabled public String contactName;
         @AuraEnabled public Id contactId;
@@ -54,7 +63,7 @@ public with sharing class MktCadenceTaskDashboardController {
             for (ActionCadenceTracker t : [
                 SELECT OwnerId
                 FROM ActionCadenceTracker
-                WHERE ActionCadenceId IN :mktCadenceIds AND State = 'Active'
+                WHERE ActionCadenceId IN :mktCadenceIds AND State = 'Running'
             ]) {
                 ownerIds.add(t.OwnerId);
             }
@@ -78,7 +87,33 @@ public with sharing class MktCadenceTaskDashboardController {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<AccountRow> getDashboardData(Id ownerId) {
+    public static List<CadenceOption> getCadenceOptions() {
+        Set<Id> mktCadenceIds = getMktCadenceIds();
+        List<CadenceOption> options = new List<CadenceOption>();
+        if (mktCadenceIds.isEmpty()) {
+            return options;
+        }
+
+        Set<Id> cadenceIdsWithRunning = new Set<Id>();
+        for (ActionCadenceTracker t : [
+            SELECT ActionCadenceId
+            FROM ActionCadenceTracker
+            WHERE ActionCadenceId IN :mktCadenceIds AND State = 'Running'
+        ]) {
+            cadenceIdsWithRunning.add(t.ActionCadenceId);
+        }
+        if (cadenceIdsWithRunning.isEmpty()) {
+            return options;
+        }
+
+        for (ActionCadence ac : [SELECT Id, Name FROM ActionCadence WHERE Id IN :cadenceIdsWithRunning ORDER BY Name]) {
+            options.add(new CadenceOption(ac.Id, ac.Name));
+        }
+        return options;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<AccountRow> getDashboardData(Id ownerId, Id cadenceId) {
         Set<Id> mktCadenceIds = getMktCadenceIds();
         Map<Id, String> cadenceNamesById = new Map<Id, String>();
         if (!mktCadenceIds.isEmpty()) {
@@ -94,8 +129,13 @@ public with sharing class MktCadenceTaskDashboardController {
         List<ActionCadenceTracker> trackers = new List<ActionCadenceTracker>();
         if (!mktCadenceIds.isEmpty()) {
             String trackerQuery = 'SELECT TargetId, OwnerId, Owner.Name, ActionCadenceId, CreatedDate ' +
-                'FROM ActionCadenceTracker WHERE ActionCadenceId IN :mktCadenceIds AND State = \'Active\' ' +
+                'FROM ActionCadenceTracker WHERE State = \'Running\' ' +
                 'AND TargetId IN (SELECT Id FROM Contact)';
+            if (cadenceId != null) {
+                trackerQuery += ' AND ActionCadenceId = :cadenceId';
+            } else {
+                trackerQuery += ' AND ActionCadenceId IN :mktCadenceIds';
+            }
             if (ownerId != null) {
                 trackerQuery += ' AND OwnerId = :ownerId';
             }
@@ -105,15 +145,29 @@ public with sharing class MktCadenceTaskDashboardController {
             contactIdsToResolve.add(t.TargetId);
         }
 
-        String taskQuery = 'SELECT Id, WhoId, Who.Name, Subject, ActivityDate, OwnerId, Owner.Name ' +
-            'FROM Task WHERE TaskSubtype = \'Task\' AND Status != \'Completed\' AND Subject LIKE \'%MKT%\' ' +
-            'AND WhoId IN (SELECT Id FROM Contact)';
-        if (ownerId != null) {
-            taskQuery += ' AND OwnerId = :ownerId';
-        }
-        List<Task> followUpTasks = Database.query(taskQuery);
-        for (Task t : followUpTasks) {
-            contactIdsToResolve.add(t.WhoId);
+        // When filtering to a specific cadence, only surface accounts actually running in it -
+        // follow-up tasks (which aren't tied to a specific cadence) are attached as context below,
+        // but shouldn't pull in unrelated accounts while this filter is active.
+        List<Task> followUpTasks = new List<Task>();
+        if (cadenceId == null) {
+            String taskQuery = 'SELECT Id, WhoId, Who.Name, Subject, ActivityDate, OwnerId, Owner.Name ' +
+                'FROM Task WHERE TaskSubtype = \'Task\' AND Status != \'Completed\' AND Subject LIKE \'%MKT%\' ' +
+                'AND WhoId IN (SELECT Id FROM Contact)';
+            if (ownerId != null) {
+                taskQuery += ' AND OwnerId = :ownerId';
+            }
+            followUpTasks = Database.query(taskQuery);
+            for (Task t : followUpTasks) {
+                contactIdsToResolve.add(t.WhoId);
+            }
+        } else if (!contactIdsToResolve.isEmpty()) {
+            String taskQuery = 'SELECT Id, WhoId, Who.Name, Subject, ActivityDate, OwnerId, Owner.Name ' +
+                'FROM Task WHERE TaskSubtype = \'Task\' AND Status != \'Completed\' AND Subject LIKE \'%MKT%\' ' +
+                'AND WhoId IN :contactIdsToResolve';
+            if (ownerId != null) {
+                taskQuery += ' AND OwnerId = :ownerId';
+            }
+            followUpTasks = Database.query(taskQuery);
         }
 
         if (!contactIdsToResolve.isEmpty()) {

@@ -1,16 +1,21 @@
 import { LightningElement, wire } from 'lwc';
 import USER_ID from '@salesforce/user/Id';
 import getUserOptions from '@salesforce/apex/MktCadenceTaskDashboardController.getUserOptions';
+import getCadenceOptions from '@salesforce/apex/MktCadenceTaskDashboardController.getCadenceOptions';
 import getDashboardData from '@salesforce/apex/MktCadenceTaskDashboardController.getDashboardData';
 
 const ALL_USERS_VALUE = '';
+const ALL_CADENCES_VALUE = '';
 
 export default class MktCadenceTaskDashboard extends LightningElement {
     currentUserId = USER_ID;
     userOptionsList = [];
+    cadenceOptionsList = [];
     selectedOwnerId = ALL_USERS_VALUE;
+    selectedCadenceId = ALL_CADENCES_VALUE;
     searchTerm = '';
     isLoadingOptions = true;
+    isLoadingCadenceOptions = true;
     isLoadingData = true;
     error;
     accountRows = [];
@@ -33,7 +38,17 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         }
     }
 
-    @wire(getDashboardData, { ownerId: '$ownerIdParam' })
+    @wire(getCadenceOptions)
+    wiredCadenceOptions({ data, error }) {
+        this.isLoadingCadenceOptions = false;
+        if (data) {
+            this.cadenceOptionsList = data.map((o) => ({ label: o.name, value: o.cadenceId }));
+        } else if (error) {
+            this.error = this.extractErrorMessage(error);
+        }
+    }
+
+    @wire(getDashboardData, { ownerId: '$ownerIdParam', cadenceId: '$cadenceIdParam' })
     wiredDashboardData({ data, error }) {
         this.isLoadingData = false;
         if (data) {
@@ -49,16 +64,28 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         return this.selectedOwnerId || null;
     }
 
+    get cadenceIdParam() {
+        return this.selectedCadenceId || null;
+    }
+
     get userFilterOptions() {
         return [{ label: 'All Users', value: ALL_USERS_VALUE }, ...this.userOptionsList];
     }
 
+    get cadenceFilterOptions() {
+        return [{ label: 'All Cadences', value: ALL_CADENCES_VALUE }, ...this.cadenceOptionsList];
+    }
+
     get isLoading() {
-        return this.isLoadingOptions || this.isLoadingData;
+        return this.isLoadingOptions || this.isLoadingCadenceOptions || this.isLoadingData;
     }
 
     handleOwnerChange(event) {
         this.selectedOwnerId = event.detail.value;
+    }
+
+    handleCadenceChange(event) {
+        this.selectedCadenceId = event.detail.value;
     }
 
     handleSearchChange(event) {
