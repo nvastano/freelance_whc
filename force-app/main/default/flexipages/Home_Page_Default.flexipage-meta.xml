@@ -33,6 +33,16 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>mktCadenceTaskDashboard</componentName>
+                <identifier>c_mktCadenceTaskDashboard</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7c6e5b4a-2222-4b3c-8d4e-5f6a7b8c9d0e</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
                 <componentInstanceProperties>
                     <name>active</name>
                     <value>true</value>
@@ -75,6 +85,20 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab4</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-7c6e5b4a-2222-4b3c-8d4e-5f6a7b8c9d0e</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>MKT Cadence Tasks</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tab5</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-08702a0c-73a5-46b4-86ec-0b3a9679111f</name>

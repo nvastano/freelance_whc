@@ -1,0 +1,94 @@
+<template>
+    <lightning-card title="MKT Cadence Task Dashboard" icon-name="standard:task">
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <div class="slds-grid slds-gutters slds-wrap filter-row">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-combobox
+                        label="Filter by User"
+                        value={selectedOwnerId}
+                        options={userFilterOptions}
+                        onchange={handleOwnerChange}
+                    ></lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-input
+                        type="search"
+                        label="Search Account"
+                        value={searchTerm}
+                        onchange={handleSearchChange}
+                    ></lightning-input>
+                </div>
+            </div>
+
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+
+            <template lwc:if={error}>
+                <div class="slds-text-color_error slds-m-top_small">{error}</div>
+            </template>
+
+            <template lwc:if={hasRows}>
+                <div class="slds-grid slds-gutters slds-wrap kpi-grid slds-m-vertical_medium">
+                    <div class="slds-col slds-size_1-of-3 kpi-tile">
+                        <div class="kpi-value">{rowCountLabel}</div>
+                        <div class="kpi-label">Accounts In Flight</div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-3 kpi-tile">
+                        <div class="kpi-value">{pendingFollowUpCount}</div>
+                        <div class="kpi-label">Pending Follow-Ups</div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-3 kpi-tile">
+                        <div class="kpi-value">{newIntentCount}</div>
+                        <div class="kpi-label">New Intent Signals (7d)</div>
+                    </div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col">Account</th>
+                                <th scope="col">Active MKT Cadences</th>
+                                <th scope="col">Pending Follow-Ups</th>
+                                <th scope="col">New Intent (last 7 days)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={filteredRows} for:item="row">
+                                <tr key={row.accountId}>
+                                    <td>
+                                        <a href={row.accountUrl} target="_blank">{row.accountName}</a>
+                                    </td>
+                                    <td>
+                                        <template for:each={row.activeCadenceLines} for:item="line">
+                                            <div key={line.key} class="line-item">{line.text}</div>
+                                        </template>
+                                    </td>
+                                    <td>
+                                        <template for:each={row.followUpLines} for:item="line">
+                                            <div key={line.key} class="line-item">{line.text}</div>
+                                        </template>
+                                    </td>
+                                    <td>
+                                        <template lwc:if={row.hasNewIntent}>
+                                            <template for:each={row.newIntentLines} for:item="line">
+                                                <div key={line.key} class="new-intent-badge">{line.text}</div>
+                                            </template>
+                                        </template>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+            <template lwc:if={isEmptyState}>
+                <div class="slds-text-color_weak slds-m-top_medium">
+                    No accounts currently active in MKT cadences or awaiting a follow-up task.
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>
