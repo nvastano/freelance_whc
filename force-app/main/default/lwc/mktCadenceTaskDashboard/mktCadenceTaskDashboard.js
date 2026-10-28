@@ -65,12 +65,36 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         this.searchTerm = event.target.value;
     }
 
-    get filteredRows() {
+    get matchingRows() {
         const term = this.searchTerm.toLowerCase().trim();
-        const rows = !term
+        return !term
             ? this.accountRows
             : this.accountRows.filter((r) => r.accountName.toLowerCase().includes(term));
-        return rows.map((r) => this.decorateRow(r));
+    }
+
+    get filteredRows() {
+        return this.matchingRows.map((r) => this.decorateRow(r));
+    }
+
+    get newIntentPanelRows() {
+        const flattened = [];
+        this.matchingRows.forEach((row) => {
+            row.newIntentSignals.forEach((s, idx) => {
+                flattened.push({
+                    key: `${row.accountId}-ni-${idx}`,
+                    accountUrl: `/lightning/r/Account/${row.accountId}/view`,
+                    accountName: row.accountName,
+                    text: `${s.topic} (score ${s.surgeScore}, ${s.signalDate})${
+                        s.suggestedCadenceName ? ' → ' + s.suggestedCadenceName : ''
+                    }`
+                });
+            });
+        });
+        return flattened;
+    }
+
+    get hasNewIntentPanelRows() {
+        return this.newIntentPanelRows.length > 0;
     }
 
     decorateRow(row) {
@@ -78,7 +102,6 @@ export default class MktCadenceTaskDashboard extends LightningElement {
             accountId: row.accountId,
             accountName: row.accountName,
             accountUrl: `/lightning/r/Account/${row.accountId}/view`,
-            hasNewIntent: row.newIntentSignals.length > 0,
             activeCadenceLines: row.activeCadences.map((c, idx) => ({
                 key: `${row.accountId}-ac-${idx}`,
                 text: `${c.cadenceName} — ${c.contactName}`
@@ -86,12 +109,6 @@ export default class MktCadenceTaskDashboard extends LightningElement {
             followUpLines: row.followUpTasks.map((t, idx) => ({
                 key: `${row.accountId}-fu-${idx}`,
                 text: `${t.subject} — ${t.contactName}${t.dueDate ? ' (due ' + t.dueDate + ')' : ''}`
-            })),
-            newIntentLines: row.newIntentSignals.map((s, idx) => ({
-                key: `${row.accountId}-ni-${idx}`,
-                text: `${s.topic} (score ${s.surgeScore}, ${s.signalDate})${
-                    s.suggestedCadenceName ? ' → ' + s.suggestedCadenceName : ''
-                }`
             }))
         };
     }

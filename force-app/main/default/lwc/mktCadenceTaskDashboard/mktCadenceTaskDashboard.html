@@ -44,6 +44,20 @@
                     </div>
                 </div>
 
+                <template lwc:if={hasNewIntentPanelRows}>
+                    <div class="intent-panel slds-m-bottom_medium">
+                        <div class="intent-panel-header">🔔 New Intent Signals (last 7 days)</div>
+                        <div class="intent-panel-body">
+                            <template for:each={newIntentPanelRows} for:item="line">
+                                <div key={line.key} class="new-intent-badge">
+                                    <a href={line.accountUrl} target="_blank">{line.accountName}</a>
+                                    — {line.text}
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
                 <div class="table-scroll">
                     <table class="slds-table slds-table_cell-buffer slds-table_bordered">
                         <thead>
@@ -51,7 +65,6 @@
                                 <th scope="col">Account</th>
                                 <th scope="col">Active MKT Cadences</th>
                                 <th scope="col">Pending Follow-Ups</th>
-                                <th scope="col">New Intent (last 7 days)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,13 +81,6 @@
                                     <td>
                                         <template for:each={row.followUpLines} for:item="line">
                                             <div key={line.key} class="line-item">{line.text}</div>
-                                        </template>
-                                    </td>
-                                    <td>
-                                        <template lwc:if={row.hasNewIntent}>
-                                            <template for:each={row.newIntentLines} for:item="line">
-                                                <div key={line.key} class="new-intent-badge">{line.text}</div>
-                                            </template>
                                         </template>
                                     </td>
                                 </tr>
