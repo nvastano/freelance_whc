@@ -38,23 +38,50 @@
 
             <template lwc:if={hasRows}>
                 <div class="slds-grid slds-gutters slds-wrap kpi-grid slds-m-vertical_medium">
-                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                    <div
+                        class={runningTileClass}
+                        data-filter="running"
+                        onclick={handleKpiClick}
+                    >
                         <div class="kpi-value">{activelyRunningCount}</div>
                         <div class="kpi-label">Actively Running</div>
                     </div>
-                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                    <div
+                        class={awaitingTileClass}
+                        data-filter="awaiting"
+                        onclick={handleKpiClick}
+                    >
                         <div class="kpi-value">{awaitingFollowUpOnlyCount}</div>
                         <div class="kpi-label">Awaiting Follow-Up</div>
                     </div>
-                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                    <div
+                        class={pendingFollowUpTileClass}
+                        data-filter="pendingFollowUps"
+                        onclick={handleKpiClick}
+                    >
                         <div class="kpi-value">{pendingFollowUpCount}</div>
                         <div class="kpi-label">Pending Follow-Ups</div>
                     </div>
-                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                    <div
+                        class={newIntentTileClass}
+                        data-filter="newIntent"
+                        onclick={handleKpiClick}
+                    >
                         <div class="kpi-value">{newIntentCount}</div>
                         <div class="kpi-label">New Intent Signals (7d)</div>
                     </div>
                 </div>
+
+                <template lwc:if={hasKpiFilter}>
+                    <div class="slds-m-bottom_small">
+                        <lightning-button
+                            label="Clear Filter"
+                            icon-name="utility:close"
+                            variant="base"
+                            onclick={handleClearKpiFilter}
+                        ></lightning-button>
+                    </div>
+                </template>
 
                 <template lwc:if={hasExportableIntents}>
                     <div class="slds-m-bottom_small">
@@ -66,45 +93,53 @@
                     </div>
                 </template>
 
-                <div class="table-scroll">
-                    <table class="slds-table slds-table_cell-buffer slds-table_bordered">
-                        <thead>
-                            <tr class="slds-line-height_reset">
-                                <th scope="col">Account</th>
-                                <th scope="col">Active MKT Cadences</th>
-                                <th scope="col">Pending Follow-Ups</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template for:each={filteredRows} for:item="row">
-                                <tr key={row.accountId}>
-                                    <td>
-                                        <a href={row.accountUrl} target="_blank">{row.accountName}</a>
-                                        <template lwc:if={row.hasNewIntent}>
-                                            <lightning-icon
-                                                icon-name="utility:notification"
-                                                size="xx-small"
-                                                variant="warning"
-                                                class="new-intent-icon"
-                                                title={row.newIntentTooltip}
-                                            ></lightning-icon>
-                                        </template>
-                                    </td>
-                                    <td>
-                                        <template for:each={row.activeCadenceLines} for:item="line">
-                                            <div key={line.key} class="line-item">{line.text}</div>
-                                        </template>
-                                    </td>
-                                    <td>
-                                        <template for:each={row.followUpLines} for:item="line">
-                                            <div key={line.key} class="line-item">{line.text}</div>
-                                        </template>
-                                    </td>
+                <template lwc:if={isKpiFilterEmptyState}>
+                    <div class="slds-text-color_weak slds-m-top_medium">
+                        No accounts match this filter.
+                    </div>
+                </template>
+
+                <template lwc:if={hasFilteredRows}>
+                    <div class="table-scroll">
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">Account</th>
+                                    <th scope="col">Active MKT Cadences</th>
+                                    <th scope="col">Pending Follow-Ups</th>
                                 </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                <template for:each={filteredRows} for:item="row">
+                                    <tr key={row.accountId}>
+                                        <td>
+                                            <a href={row.accountUrl} target="_blank">{row.accountName}</a>
+                                            <template lwc:if={row.hasNewIntent}>
+                                                <lightning-icon
+                                                    icon-name="utility:notification"
+                                                    size="xx-small"
+                                                    variant="warning"
+                                                    class="new-intent-icon"
+                                                    title={row.newIntentTooltip}
+                                                ></lightning-icon>
+                                            </template>
+                                        </td>
+                                        <td>
+                                            <template for:each={row.activeCadenceLines} for:item="line">
+                                                <div key={line.key} class="line-item">{line.text}</div>
+                                            </template>
+                                        </td>
+                                        <td>
+                                            <template for:each={row.followUpLines} for:item="line">
+                                                <div key={line.key} class="line-item">{line.text}</div>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
             </template>
 
             <template lwc:if={isEmptyState}>

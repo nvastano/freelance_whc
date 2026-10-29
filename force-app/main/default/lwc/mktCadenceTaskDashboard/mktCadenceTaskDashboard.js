@@ -20,6 +20,7 @@ export default class MktCadenceTaskDashboard extends LightningElement {
     error;
     accountRows = [];
     _defaultApplied = false;
+    selectedKpiFilter;
 
     @wire(getUserOptions)
     wiredUserOptions({ data, error }) {
@@ -99,8 +100,58 @@ export default class MktCadenceTaskDashboard extends LightningElement {
             : this.accountRows.filter((r) => r.accountName.toLowerCase().includes(term));
     }
 
+    handleKpiClick(event) {
+        const filter = event.currentTarget.dataset.filter;
+        this.selectedKpiFilter = this.selectedKpiFilter === filter ? undefined : filter;
+    }
+
+    handleClearKpiFilter() {
+        this.selectedKpiFilter = undefined;
+    }
+
+    get kpiFilteredRows() {
+        switch (this.selectedKpiFilter) {
+            case 'running':
+                return this.matchingRows.filter((r) => r.activeCadences.length > 0);
+            case 'awaiting':
+                return this.matchingRows.filter(
+                    (r) => r.activeCadences.length === 0 && r.followUpTasks.length > 0
+                );
+            case 'pendingFollowUps':
+                return this.matchingRows.filter((r) => r.followUpTasks.length > 0);
+            case 'newIntent':
+                return this.matchingRows.filter((r) => r.newIntentSignals.length > 0);
+            default:
+                return this.matchingRows;
+        }
+    }
+
     get filteredRows() {
-        return this.matchingRows.map((r) => this.decorateRow(r));
+        return this.kpiFilteredRows.map((r) => this.decorateRow(r));
+    }
+
+    get hasKpiFilter() {
+        return !!this.selectedKpiFilter;
+    }
+
+    get runningTileClass() {
+        return this.kpiTileClass('running');
+    }
+
+    get awaitingTileClass() {
+        return this.kpiTileClass('awaiting');
+    }
+
+    get pendingFollowUpTileClass() {
+        return this.kpiTileClass('pendingFollowUps');
+    }
+
+    get newIntentTileClass() {
+        return this.kpiTileClass('newIntent');
+    }
+
+    kpiTileClass(filter) {
+        return this.selectedKpiFilter === filter ? 'kpi-tile kpi-tile_selected' : 'kpi-tile';
     }
 
     decorateRow(row) {
@@ -135,7 +186,7 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         const header = ['Account', 'Topic', 'Category', 'Surge Score', 'Signal Date', 'Suggested Cadence'];
         const lines = [header.map((h) => this.csvEscape(h)).join(',')];
 
-        this.matchingRows.forEach((row) => {
+        this.kpiFilteredRows.forEach((row) => {
             row.newIntentSignals.forEach((s) => {
                 lines.push(
                     [
@@ -172,7 +223,7 @@ export default class MktCadenceTaskDashboard extends LightningElement {
     }
 
     get hasExportableIntents() {
-        return this.matchingRows.some((r) => r.newIntentSignals.length > 0);
+        return this.kpiFilteredRows.some((r) => r.newIntentSignals.length > 0);
     }
 
     get activelyRunningCount() {
@@ -185,11 +236,19 @@ export default class MktCadenceTaskDashboard extends LightningElement {
     }
 
     get hasRows() {
+        return this.matchingRows.length > 0;
+    }
+
+    get hasFilteredRows() {
         return this.filteredRows.length > 0;
     }
 
     get isEmptyState() {
         return !this.isLoading && !this.error && !this.hasRows;
+    }
+
+    get isKpiFilterEmptyState() {
+        return this.hasRows && this.hasKpiFilter && !this.hasFilteredRows;
     }
 
     get pendingFollowUpCount() {
