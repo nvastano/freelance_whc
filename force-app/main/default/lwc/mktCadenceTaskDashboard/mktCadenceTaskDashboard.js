@@ -168,11 +168,20 @@ export default class MktCadenceTaskDashboard extends LightningElement {
     }
 
     get newIntentCount() {
-        return this.accountRows.filter((r) => r.newIntentSignals.length > 0).length;
+        return this.matchingRows.filter((r) => r.newIntentSignals.length > 0).length;
     }
 
     get hasExportableIntents() {
         return this.matchingRows.some((r) => r.newIntentSignals.length > 0);
+    }
+
+    get activelyRunningCount() {
+        return this.matchingRows.filter((r) => r.activeCadences.length > 0).length;
+    }
+
+    get awaitingFollowUpOnlyCount() {
+        return this.matchingRows.filter((r) => r.activeCadences.length === 0 && r.followUpTasks.length > 0)
+            .length;
     }
 
     get hasRows() {
@@ -183,12 +192,8 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         return !this.isLoading && !this.error && !this.hasRows;
     }
 
-    get rowCountLabel() {
-        return String(this.filteredRows.length);
-    }
-
     get pendingFollowUpCount() {
-        return this.accountRows.reduce((sum, r) => sum + r.followUpTasks.length, 0);
+        return this.matchingRows.reduce((sum, r) => sum + r.followUpTasks.length, 0);
     }
 
     extractErrorMessage(error) {

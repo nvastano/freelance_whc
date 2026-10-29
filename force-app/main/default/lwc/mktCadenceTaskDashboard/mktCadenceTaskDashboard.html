@@ -38,15 +38,19 @@
 
             <template lwc:if={hasRows}>
                 <div class="slds-grid slds-gutters slds-wrap kpi-grid slds-m-vertical_medium">
-                    <div class="slds-col slds-size_1-of-3 kpi-tile">
-                        <div class="kpi-value">{rowCountLabel}</div>
-                        <div class="kpi-label">Accounts In Flight</div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                        <div class="kpi-value">{activelyRunningCount}</div>
+                        <div class="kpi-label">Actively Running</div>
                     </div>
-                    <div class="slds-col slds-size_1-of-3 kpi-tile">
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
+                        <div class="kpi-value">{awaitingFollowUpOnlyCount}</div>
+                        <div class="kpi-label">Awaiting Follow-Up</div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
                         <div class="kpi-value">{pendingFollowUpCount}</div>
                         <div class="kpi-label">Pending Follow-Ups</div>
                     </div>
-                    <div class="slds-col slds-size_1-of-3 kpi-tile">
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4 kpi-tile">
                         <div class="kpi-value">{newIntentCount}</div>
                         <div class="kpi-label">New Intent Signals (7d)</div>
                     </div>
