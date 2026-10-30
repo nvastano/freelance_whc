@@ -3,6 +3,17 @@ import getCycleOptions from '@salesforce/apex/BusinessSegmentPerformanceControll
 import getBusinessSegmentOptions from '@salesforce/apex/BusinessSegmentPerformanceController.getBusinessSegmentOptions';
 import getSegmentPerformance from '@salesforce/apex/BusinessSegmentPerformanceController.getSegmentPerformance';
 import getCyclePerformance from '@salesforce/apex/BusinessSegmentPerformanceController.getCyclePerformance';
+import getCompanySizePerformance from '@salesforce/apex/BusinessSegmentPerformanceController.getCompanySizePerformance';
+
+const GROUP_BY_OPTIONS = [
+    { label: 'Business Segment', value: 'segment' },
+    { label: 'Company Size', value: 'size' }
+];
+
+const SIZE_TIER_TYPE_OPTIONS = [
+    { label: 'By Employees', value: 'employees' },
+    { label: 'By Revenue', value: 'revenue' }
+];
 
 const DEFAULT_RANGE_DAYS = 30;
 
@@ -46,6 +57,9 @@ export default class BusinessSegmentPerformance extends LightningElement {
     showAllBars = false;
     chartContainerWidth = BAR_CHART_MIN_WIDTH;
     _resizeObserver;
+
+    groupByMode = 'segment';
+    sizeTierType = 'employees';
 
     connectedCallback() {
         const today = new Date();
@@ -102,6 +116,56 @@ export default class BusinessSegmentPerformance extends LightningElement {
         }
     }
 
+    get groupByOptions() {
+        return GROUP_BY_OPTIONS;
+    }
+
+    get sizeTierTypeOptions() {
+        return SIZE_TIER_TYPE_OPTIONS;
+    }
+
+    get isSizeMode() {
+        return this.groupByMode === 'size';
+    }
+
+    get barGroupLabel() {
+        return this.isSizeMode ? 'Company Size' : 'Business Type';
+    }
+
+    get barFilterLabel() {
+        return this.isSizeMode ? 'Filter size tiers' : 'Filter business types';
+    }
+
+    get barFilterPlaceholder() {
+        return this.isSizeMode ? 'Search tier names...' : 'Search business type names...';
+    }
+
+    get barNoMatchMessage() {
+        return this.isSizeMode
+            ? `No size tiers match "${this.barSearchTerm}".`
+            : `No business types in this cycle match "${this.barSearchTerm}".`;
+    }
+
+    get barNoActivityMessage() {
+        return this.isSizeMode
+            ? 'No outreach activity in this date range.'
+            : 'No activity in this date range for this cycle.';
+    }
+
+    get chartHeading() {
+        if (this.isSizeMode) {
+            const found = SIZE_TIER_TYPE_OPTIONS.find((o) => o.value === this.sizeTierType);
+            return `Company Size — ${found ? found.label.replace('By ', '') : ''}`;
+        }
+        return `All Business Types — ${this.selectedCycle}`;
+    }
+
+    get accountCountLabel() {
+        return this.isSizeMode
+            ? `${this.accountCount} account(s) with outreach activity in this tier`
+            : `${this.accountCount} account(s) assigned to this business type`;
+    }
+
     get hasCycleSelected() {
         return !!this.selectedCycle;
     }
@@ -146,6 +210,10 @@ export default class BusinessSegmentPerformance extends LightningElement {
     }
 
     get selectedSegmentName() {
+        if (this.isSizeMode) {
+            const match = this.cycleSegmentPerformances.find((s) => s.segmentId === this.selectedSegmentId);
+            return match ? match.business : '';
+        }
         const match = this.allSegments.find((s) => s.segmentId === this.selectedSegmentId);
         return match ? match.business : '';
     }
@@ -183,7 +251,44 @@ export default class BusinessSegmentPerformance extends LightningElement {
     handleBarClick(event) {
         this.selectedSegmentId = event.currentTarget.dataset.id;
         this.isAllSegmentsView = false;
-        this.loadSegmentPerformance();
+        if (this.isSizeMode) {
+            // All tiers' full metrics were already returned by the one getCompanySizePerformance
+            // call - no need for a second round-trip to drill into a single tier.
+            const match = this.cycleSegmentPerformances.find((s) => s.segmentId === this.selectedSegmentId);
+            this.segmentPerformance = match || null;
+        } else {
+            this.loadSegmentPerformance();
+        }
+    }
+
+    handleBackToAllTiers() {
+        this.selectedSegmentId = undefined;
+        this.segmentPerformance = undefined;
+        this.isAllSegmentsView = true;
+    }
+
+    handleGroupByChange(event) {
+        this.groupByMode = event.detail.value;
+        this.selectedSegmentId = undefined;
+        this.segmentPerformance = undefined;
+        this.isAllSegmentsView = false;
+        this.cycleSegmentPerformances = [];
+        this.barSearchTerm = '';
+        this.showAllBars = false;
+        this.selectedCycle = undefined;
+        this.segmentSearchTerm = '';
+        if (this.isSizeMode) {
+            this.isAllSegmentsView = true;
+            this.loadCompanySizePerformance();
+        }
+    }
+
+    handleSizeTierTypeChange(event) {
+        this.sizeTierType = event.detail.value;
+        this.selectedSegmentId = undefined;
+        this.segmentPerformance = undefined;
+        this.isAllSegmentsView = true;
+        this.loadCompanySizePerformance();
     }
 
     handleBarMetricChange(event) {
@@ -209,11 +314,47 @@ export default class BusinessSegmentPerformance extends LightningElement {
     }
 
     refreshActiveView() {
-        if (this.isAllSegmentsView) {
+        if (this.isSizeMode) {
+            this.loadCompanySizePerformance();
+        } else if (this.isAllSegmentsView) {
             this.loadCyclePerformance();
         } else {
             this.loadSegmentPerformance();
         }
+    }
+
+    loadCompanySizePerformance() {
+        if (!this.startDate || !this.endDate) {
+            return;
+        }
+        this.isLoadingCycle = true;
+        this.error = undefined;
+        getCompanySizePerformance({
+            tierType: this.sizeTierType,
+            startDate: this.startDate,
+            endDate: this.endDate
+        })
+            .then((result) => {
+                this.cycleSegmentPerformances = result.map((tp) => ({
+                    segmentId: tp.tierKey,
+                    business: tp.label,
+                    accountCount: tp.accountCount,
+                    metrics: tp.metrics
+                }));
+                if (this.selectedSegmentId) {
+                    const match = this.cycleSegmentPerformances.find(
+                        (s) => s.segmentId === this.selectedSegmentId
+                    );
+                    this.segmentPerformance = match || null;
+                }
+            })
+            .catch((err) => {
+                this.error = this.extractErrorMessage(err);
+                this.cycleSegmentPerformances = [];
+            })
+            .finally(() => {
+                this.isLoadingCycle = false;
+            });
     }
 
     loadSegmentPerformance() {

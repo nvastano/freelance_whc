@@ -11,45 +11,69 @@
             <!-- Filters -->
             <div class="slds-grid slds-gutters slds-wrap filter-row">
                 <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                    <lightning-combobox
-                        name="cycle"
-                        label="Cycle"
-                        placeholder="Select a cycle"
-                        options={cycleOptionsList}
-                        value={selectedCycle}
-                        onchange={handleCycleChange}
-                        disabled={isLoadingOptions}
-                    ></lightning-combobox>
+                    <lightning-radio-group
+                        name="groupBy"
+                        label="Group By"
+                        options={groupByOptions}
+                        value={groupByMode}
+                        onchange={handleGroupByChange}
+                    ></lightning-radio-group>
                 </div>
 
-                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
-                    <label class="slds-form-element__label">Business Type</label>
-                    <lightning-input
-                        type="search"
-                        variant="label-hidden"
-                        placeholder="Search business types in this cycle..."
-                        value={segmentSearchTerm}
-                        onchange={handleSegmentSearch}
-                        disabled={isCycleNotSelected}
-                    ></lightning-input>
-                    <template if:true={hasCycleSelected}>
-                        <ul class="segment-list slds-box slds-box_x-small slds-m-top_xx-small">
-                            <li class={allSegmentsItemClass} onclick={handleShowAllSegments}>
-                                All Business Types in this Cycle
-                            </li>
-                            <template for:each={segmentListForCycle} for:item="segment">
-                                <li
-                                    key={segment.segmentId}
-                                    class={segment.itemClass}
-                                    data-id={segment.segmentId}
-                                    onclick={handleSegmentSelect}
-                                >
-                                    {segment.business}
+                <template if:false={isSizeMode}>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                        <lightning-combobox
+                            name="cycle"
+                            label="Cycle"
+                            placeholder="Select a cycle"
+                            options={cycleOptionsList}
+                            value={selectedCycle}
+                            onchange={handleCycleChange}
+                            disabled={isLoadingOptions}
+                        ></lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                        <label class="slds-form-element__label">Business Type</label>
+                        <lightning-input
+                            type="search"
+                            variant="label-hidden"
+                            placeholder="Search business types in this cycle..."
+                            value={segmentSearchTerm}
+                            onchange={handleSegmentSearch}
+                            disabled={isCycleNotSelected}
+                        ></lightning-input>
+                        <template if:true={hasCycleSelected}>
+                            <ul class="segment-list slds-box slds-box_x-small slds-m-top_xx-small">
+                                <li class={allSegmentsItemClass} onclick={handleShowAllSegments}>
+                                    All Business Types in this Cycle
                                 </li>
-                            </template>
-                        </ul>
-                    </template>
-                </div>
+                                <template for:each={segmentListForCycle} for:item="segment">
+                                    <li
+                                        key={segment.segmentId}
+                                        class={segment.itemClass}
+                                        data-id={segment.segmentId}
+                                        onclick={handleSegmentSelect}
+                                    >
+                                        {segment.business}
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+                </template>
+
+                <template if:true={isSizeMode}>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                        <lightning-radio-group
+                            name="sizeTierType"
+                            label="Measure Size By"
+                            options={sizeTierTypeOptions}
+                            value={sizeTierType}
+                            onchange={handleSizeTierTypeChange}
+                        ></lightning-radio-group>
+                    </div>
+                </template>
 
                 <div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
                     <lightning-input
@@ -82,7 +106,7 @@
             <!-- All segments in cycle: bar chart -->
             <template if:true={isAllSegmentsView}>
                 <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
-                    All Business Types — {selectedCycle}
+                    {chartHeading}
                 </h2>
 
                 <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_small">
@@ -98,8 +122,8 @@
                     <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
                         <lightning-input
                             type="search"
-                            label="Filter business types"
-                            placeholder="Search business type names..."
+                            label={barFilterLabel}
+                            placeholder={barFilterPlaceholder}
                             value={barSearchTerm}
                             onchange={handleBarSearch}
                         ></lightning-input>
@@ -111,7 +135,7 @@
                         <div class="chart-container bar-chart-container">
                             <div class="slds-grid slds-grid_align-spread slds-wrap slds-m-bottom_x-small">
                                 <div class="slds-text-title_caps">
-                                    {barMetricLabel} by Business Type — click a bar to drill in
+                                    {barMetricLabel} by {barGroupLabel} — click a bar to drill in
                                 </div>
                                 <div class="slds-text-body_small slds-text-color_weak">
                                     {barCountLabel}
@@ -159,7 +183,7 @@
 
                     <template if:false={hasFilteredCycleSegments}>
                         <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
-                            No business types in this cycle match "{barSearchTerm}".
+                            {barNoMatchMessage}
                         </div>
                     </template>
                 </template>
@@ -167,7 +191,7 @@
                 <template if:false={hasCycleSegmentPerformances}>
                     <template if:false={isBusy}>
                         <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
-                            No activity in this date range for this cycle.
+                            {barNoActivityMessage}
                         </div>
                     </template>
                 </template>
@@ -175,13 +199,22 @@
 
             <!-- Single segment detail -->
             <template if:true={hasSegmentSelected}>
-                <h2 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+                <template if:true={isSizeMode}>
+                    <lightning-button
+                        variant="base"
+                        label="← Back to all tiers"
+                        onclick={handleBackToAllTiers}
+                        class="slds-m-top_medium"
+                    ></lightning-button>
+                </template>
+
+                <h2 class="slds-text-heading_small slds-m-top_small slds-m-bottom_small">
                     {selectedSegmentName}
                 </h2>
 
                 <template if:true={metrics}>
                     <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                        {accountCount} account(s) assigned to this business type
+                        {accountCountLabel}
                     </div>
 
                     <div class="slds-text-heading_x-small slds-m-bottom_x-small">Email</div>
