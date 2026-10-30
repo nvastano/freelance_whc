@@ -85,11 +85,18 @@
 
                 <template lwc:if={hasExportableIntents}>
                     <div class="slds-m-bottom_small">
-                        <lightning-button
-                            label="Export New Intent Signals (CSV)"
-                            icon-name="utility:download"
-                            onclick={handleExportIntents}
-                        ></lightning-button>
+                        <a
+                            href={exportCsvHref}
+                            download={exportCsvFileName}
+                            class="slds-button slds-button_neutral"
+                        >
+                            <lightning-icon
+                                icon-name="utility:download"
+                                size="xx-small"
+                                class="slds-m-right_x-small export-icon"
+                            ></lightning-icon>
+                            Export New Intent Signals (CSV)
+                        </a>
                     </div>
                 </template>
 

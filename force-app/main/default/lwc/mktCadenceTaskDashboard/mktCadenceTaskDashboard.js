@@ -182,7 +182,14 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         };
     }
 
-    handleExportIntents() {
+    // Rendered directly in the template as a real <a href=... download> element instead of
+    // being built and .click()'d from JS - a synthetic click on a JS-created anchor is
+    // unreliable under Lightning's DOM sandboxing (silently does nothing in some contexts),
+    // while a real template-rendered anchor the user actually clicks always works.
+    get exportCsvHref() {
+        if (!this.hasExportableIntents) {
+            return undefined;
+        }
         const header = ['Account', 'Topic', 'Category', 'Surge Score', 'Signal Date', 'Suggested Cadence'];
         const lines = [header.map((h) => this.csvEscape(h)).join(',')];
 
@@ -204,19 +211,11 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         });
 
         const csvContent = lines.join('\r\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `mkt_new_intent_signals_${new Date().toISOString().slice(0, 10)}.csv`;
-        link.style.display = 'none';
-        // Browsers (Safari in particular) only honor a synthetic click on an <a download>
-        // element that is actually attached to the document - a detached element's click()
-        // is silently ignored, which is why this needs appendChild/remove around it.
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 0);
+        return 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+    }
+
+    get exportCsvFileName() {
+        return `mkt_new_intent_signals_${new Date().toISOString().slice(0, 10)}.csv`;
     }
 
     csvEscape(value) {
