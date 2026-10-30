@@ -209,8 +209,14 @@ export default class MktCadenceTaskDashboard extends LightningElement {
         const link = document.createElement('a');
         link.href = url;
         link.download = `mkt_new_intent_signals_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.style.display = 'none';
+        // Browsers (Safari in particular) only honor a synthetic click on an <a download>
+        // element that is actually attached to the document - a detached element's click()
+        // is silently ignored, which is why this needs appendChild/remove around it.
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
     }
 
     csvEscape(value) {
